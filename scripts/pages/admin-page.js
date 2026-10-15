@@ -1933,7 +1933,9 @@ const extractAndValidateStaffForm = (prefix = 'st') => {
 
     const hasAnyPortalAccess = canCollect || canAccessWorksheet || canManageResults || canAccessAdmin;
     const passwordInputExists = fieldElements.some((el) => el.dataset.staffFieldKey === 'password');
-    if (hasAnyPortalAccess && passwordInputExists && values.email && !values.password) {
+    const existingStaffForValidation = (prefix === 'e-st' && editingStaffId) ? allStaff.find((st) => st.id === editingStaffId) : null;
+    const effectivePassword = values.password || existingStaffForValidation?.password || '';
+    if (hasAnyPortalAccess && passwordInputExists && values.email && !effectivePassword) {
         alert('Please provide a Login Password when granting portal access.');
         return null;
     }
@@ -2069,23 +2071,23 @@ const renderStaffList = () => {
 
                 <!-- Bottom Action Buttons: Single row, icon on top, name underneath -->
                 <div class="pt-3 border-t border-gray-100 grid grid-cols-5 gap-1.5 text-center">
-                    <button class="staff-action-btn flex flex-col items-center justify-center p-2 rounded-lg bg-red-50 hover:bg-red-100 text-red-600 border border-red-100 transition shadow-2xs group" data-action="delete" data-id="${staffMember.id}" title="Delete Staff">
+                    <button type="button" class="staff-action-btn flex flex-col items-center justify-center p-2 rounded-lg bg-red-50 hover:bg-red-100 text-red-600 border border-red-100 transition shadow-2xs group cursor-pointer" data-action="delete" data-id="${staffMember.id}" title="Delete Staff">
                         <i class="fas fa-trash text-sm mb-1 group-hover:scale-110 transition-transform"></i>
                         <span class="text-[10px] font-bold leading-tight">Delete</span>
                     </button>
-                    <button class="staff-action-btn flex flex-col items-center justify-center p-2 rounded-lg ${isAct ? 'bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-200' : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200'} transition shadow-2xs group" data-action="toggle" data-id="${staffMember.id}" data-next-state="${isAct ? 'false' : 'true'}" title="${isAct ? 'Deactivate' : 'Activate'}">
+                    <button type="button" class="staff-action-btn flex flex-col items-center justify-center p-2 rounded-lg ${isAct ? 'bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-200' : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200'} transition shadow-2xs group cursor-pointer" data-action="toggle" data-id="${staffMember.id}" data-next-state="${isAct ? 'false' : 'true'}" title="${isAct ? 'Deactivate' : 'Activate'}">
                         <i class="fas ${isAct ? 'fa-user-slash' : 'fa-user-check'} text-sm mb-1 group-hover:scale-110 transition-transform"></i>
                         <span class="text-[10px] font-bold leading-tight">${isAct ? 'Deactive' : 'Active'}</span>
                     </button>
-                    <button class="staff-action-btn flex flex-col items-center justify-center p-2 rounded-lg bg-violet-50 hover:bg-violet-100 text-violet-700 border border-violet-200 transition shadow-2xs group" data-action="credential" data-id="${staffMember.id}" title="Login Credentials">
+                    <button type="button" class="staff-action-btn flex flex-col items-center justify-center p-2 rounded-lg bg-violet-50 hover:bg-violet-100 text-violet-700 border border-violet-200 transition shadow-2xs group cursor-pointer" data-action="credential" data-id="${staffMember.id}" title="Login Credentials">
                         <i class="fas fa-key text-sm mb-1 group-hover:scale-110 transition-transform"></i>
                         <span class="text-[10px] font-bold leading-tight">Login</span>
                     </button>
-                    <button class="staff-action-btn flex flex-col items-center justify-center p-2 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 transition shadow-2xs group" data-action="duty" data-id="${staffMember.id}" title="Duty Classes & UPI">
+                    <button type="button" class="staff-action-btn flex flex-col items-center justify-center p-2 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 transition shadow-2xs group cursor-pointer" data-action="duty" data-id="${staffMember.id}" title="Duty Classes & UPI">
                         <i class="fas fa-school text-sm mb-1 group-hover:scale-110 transition-transform"></i>
                         <span class="text-[10px] font-bold leading-tight truncate w-full">Duty &amp; UPI</span>
                     </button>
-                    <button class="staff-action-btn flex flex-col items-center justify-center p-2 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 transition shadow-2xs group" data-action="edit" data-id="${staffMember.id}" title="Edit Staff Details">
+                    <button type="button" class="staff-action-btn flex flex-col items-center justify-center p-2 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 transition shadow-2xs group cursor-pointer" data-action="edit" data-id="${staffMember.id}" title="Edit Staff Details">
                         <i class="fas fa-edit text-sm mb-1 group-hover:scale-110 transition-transform"></i>
                         <span class="text-[10px] font-bold leading-tight">Edit</span>
                     </button>
@@ -2223,8 +2225,12 @@ const handleStaffActionClick = (e) => {
     if (action === 'toggle') window.toggleStaffStatus(id, nextState === 'true');
     if (action === 'delete') window.deleteStaff(id);
 };
-document.getElementById('staff-management-page')?.addEventListener('click', handleStaffActionClick);
-document.getElementById('manage-staff-page')?.addEventListener('click', handleStaffActionClick);
+document.addEventListener('click', (e) => {
+    const btn = e.target.closest('.staff-action-btn');
+    if (btn) {
+        handleStaffActionClick(e);
+    }
+});
 
 window.openEditStaff = (id) => {
     if(!requirePermission('staff.manage')) return;
@@ -2295,12 +2301,18 @@ window.openStaffDutyModal = (id) => {
 
     const grid = document.getElementById('staff-duty-classes-grid');
     if (grid) {
-        classes = getClassesForActiveYear();
+        const activeYearClasses = getClassesForActiveYear() || [];
+        const allYearClasses = (academicYears || []).flatMap((y) => Array.isArray(y.classes) ? y.classes : []);
+        const studentClasses = (rawStudents || []).map((s) => s.class).filter(Boolean);
         const existingDutyClasses = Array.isArray(staffRecord.dutyClasses) ? staffRecord.dutyClasses.filter(Boolean) : [];
-        if (!classes.length) {
+        let dutyClassList = sortClassLabels([...new Set([...activeYearClasses, ...allYearClasses, ...studentClasses, ...existingDutyClasses])]);
+        if (!dutyClassList.length && typeof getDefaultClassLadder === 'function') {
+            dutyClassList = getDefaultClassLadder();
+        }
+        if (!dutyClassList.length) {
             grid.innerHTML = '<p class="col-span-full text-xs text-gray-500 italic p-2">No classes configured for active academic year. Please add classes in Classes &amp; Divisions first.</p>';
         } else {
-            grid.innerHTML = classes.map((cls) => {
+            grid.innerHTML = dutyClassList.map((cls) => {
                 const checked = existingDutyClasses.includes(cls) ? 'checked' : '';
                 return `
                     <label class="flex items-center gap-2 bg-white border border-slate-200 rounded-lg p-2 text-xs font-semibold cursor-pointer hover:bg-blue-50 transition">
@@ -2389,6 +2401,7 @@ document.getElementById('staff-duty-save-btn')?.addEventListener('click', async 
 
         closeStaffDutyModal();
         renderStaffList();
+        showToast?.('Duty classes and payment details saved successfully!', 'success');
     } catch (err) {
         console.error('Failed to update staff duty classes and payment details', err);
         alert('Failed to save duty classes and payment details. Please check connection and try again.');
@@ -2419,9 +2432,11 @@ document.getElementById('edit-staff-update').onclick = async () => {
     if (!nextStaffRecord) return;
     if(!confirm("Save changes?")) return;
     const existingStaff = allStaff.find((staffMember) => staffMember.id === editingStaffId) || {};
+    const finalPassword = nextStaffRecord.password ? nextStaffRecord.password : (existingStaff.password || '');
     const mergedRecord = {
         ...existingStaff,
         ...nextStaffRecord,
+        password: finalPassword,
         customFields: {
             ...(existingStaff.customFields || {}),
             ...(nextStaffRecord.customFields || {})
@@ -2439,40 +2454,193 @@ document.getElementById('edit-staff-update').onclick = async () => {
     showToast?.('Staff details updated successfully!', 'success');
 };
 
-window.resetStaffCredentials = async (id) => {
-    if(!requirePermission('staff.manage')) return;
-    const staffRecord = allStaff.find((staffMember) => staffMember.id === id);
+// --- Staff Login Credentials Modal ---
+window.resetStaffCredentials = (id) => {
+    if (!requirePermission('staff.manage')) return;
+    const staffRecord = allStaff.find((st) => st.id === id);
     if (!staffRecord) return;
-    const nextEmail = prompt('New login email for this staff account:', staffRecord.email || '');
-    if (nextEmail === null) return;
-    const normalizedNextEmail = normalizeEmail(nextEmail);
-    if (!normalizedNextEmail) return alert('Valid email is required.');
-    const nextPassword = prompt('New login password for this staff account:', staffRecord.password || '');
-    if (nextPassword === null) return;
-    if (!nextPassword.trim()) return alert('Password cannot be empty.');
-    if(!confirm(`Save new login credentials for ${staffRecord.name || 'Staff'}?`)) return;
 
-    const nextStaffPayload = {
-        ...staffRecord,
-        email: normalizedNextEmail,
-        password: nextPassword.trim()
-    };
-    await updateDoc(doc(db, `${BASE_PATH}/staff`, id), {
-        email: normalizedNextEmail,
-        password: nextPassword.trim()
-    });
-    if (staffRecord.email && normalizeEmail(staffRecord.email) !== normalizedNextEmail) {
-        await removeStaffAccessRecord(staffRecord.email);
+    const popup = document.getElementById('staff-credentials-popup');
+    if (!popup) return;
+
+    const staffIdInput = document.getElementById('staff-cred-staff-id');
+    if (staffIdInput) staffIdInput.value = staffRecord.id;
+
+    const subEl = document.getElementById('staff-cred-subtitle');
+    if (subEl) {
+        subEl.textContent = `Staff: ${staffRecord.name || '--'} (${getStaffTypeLabel(staffRecord.type)} - ${staffRecord.role || 'Staff'})`;
     }
-    await syncStaffAccessRecord(nextStaffPayload);
-    await logAuditEvent({
-        category: 'security',
-        action: 'staff.credentials.rotate',
-        entityType: 'staff',
-        entityId: id,
-        message: `Staff login credentials updated for ${staffRecord.name || normalizedNextEmail}.`
-    });
-    alert(`New credentials saved.\n\nStaff: ${staffRecord.name || '--'}\nEmail: ${normalizedNextEmail}\nPassword: ${nextPassword.trim()}\n\nShare securely with staff.`);
+
+    const emailInput = document.getElementById('staff-cred-email');
+    const passInput = document.getElementById('staff-cred-password');
+    if (emailInput) emailInput.value = staffRecord.email || '';
+    if (passInput) {
+        passInput.value = staffRecord.password || '';
+        passInput.type = 'password';
+    }
+    const eyeIcon = document.getElementById('staff-cred-eye-icon');
+    if (eyeIcon) {
+        eyeIcon.className = 'fas fa-eye';
+    }
+
+    popup.classList.remove('hidden');
+    popup.classList.add('flex');
+};
+
+const closeStaffCredentialsModal = () => {
+    const popup = document.getElementById('staff-credentials-popup');
+    if (popup) {
+        popup.classList.add('hidden');
+        popup.classList.remove('flex');
+    }
+};
+
+document.getElementById('staff-cred-close-btn')?.addEventListener('click', closeStaffCredentialsModal);
+document.getElementById('staff-cred-cancel-btn')?.addEventListener('click', closeStaffCredentialsModal);
+
+document.getElementById('staff-cred-toggle-pass')?.addEventListener('click', () => {
+    const passInput = document.getElementById('staff-cred-password');
+    const eyeIcon = document.getElementById('staff-cred-eye-icon');
+    if (!passInput) return;
+    if (passInput.type === 'password') {
+        passInput.type = 'text';
+        if (eyeIcon) eyeIcon.className = 'fas fa-eye-slash';
+    } else {
+        passInput.type = 'password';
+        if (eyeIcon) eyeIcon.className = 'fas fa-eye';
+    }
+});
+
+document.getElementById('staff-cred-save-btn')?.addEventListener('click', async () => {
+    if (!requirePermission('staff.manage')) return;
+    const staffId = document.getElementById('staff-cred-staff-id')?.value;
+    if (!staffId) return;
+
+    const staffRecord = allStaff.find((st) => st.id === staffId);
+    if (!staffRecord) return;
+
+    const rawEmail = document.getElementById('staff-cred-email')?.value || '';
+    const rawPassword = document.getElementById('staff-cred-password')?.value || '';
+
+    const normalizedNextEmail = normalizeEmail(rawEmail);
+    if (!normalizedNextEmail) {
+        alert('A valid email address is required.');
+        return;
+    }
+    if (!rawPassword.trim()) {
+        alert('Password cannot be empty.');
+        return;
+    }
+
+    const saveBtn = document.getElementById('staff-cred-save-btn');
+    const originalBtnHtml = saveBtn ? saveBtn.innerHTML : '';
+    if (saveBtn) {
+        saveBtn.disabled = true;
+        saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-1.5"></i> Saving...';
+    }
+
+    try {
+        const nextStaffPayload = {
+            ...staffRecord,
+            email: normalizedNextEmail,
+            password: rawPassword.trim()
+        };
+
+        await updateDoc(doc(db, `${BASE_PATH}/staff`, staffId), {
+            email: normalizedNextEmail,
+            password: rawPassword.trim(),
+            updatedAt: new Date().toISOString()
+        });
+
+        if (staffRecord.email && normalizeEmail(staffRecord.email) !== normalizedNextEmail) {
+            await removeStaffAccessRecord(staffRecord.email);
+        }
+        await syncStaffAccessRecord(nextStaffPayload);
+
+        staffRecord.email = normalizedNextEmail;
+        staffRecord.password = rawPassword.trim();
+
+        await logAuditEvent({
+            category: 'security',
+            action: 'staff.credentials.rotate',
+            entityType: 'staff',
+            entityId: staffId,
+            message: `Login credentials updated for ${staffRecord.name || normalizedNextEmail}`
+        });
+
+        closeStaffCredentialsModal();
+        renderStaffList();
+        showToast?.('Login credentials updated successfully!', 'success');
+    } catch (err) {
+        console.error('Failed to save staff credentials:', err);
+        alert('Failed to save credentials. Please check your network connection.');
+    } finally {
+        if (saveBtn) {
+            saveBtn.disabled = false;
+            saveBtn.innerHTML = originalBtnHtml || '<i class="fas fa-save"></i> Save Credentials';
+        }
+    }
+});
+
+// --- Staff Delete & Status Toggle Actions ---
+window.deleteStaff = async (id) => {
+    if (!requirePermission('staff.manage')) return;
+    const staffRecord = allStaff.find((st) => st.id === id);
+    if (!staffRecord) return;
+    const staffName = staffRecord.name || 'this staff member';
+    if (!confirm(`Are you sure you want to permanently delete "${staffName}"? This action cannot be undone.`)) return;
+
+    try {
+        await deleteDoc(doc(db, `${BASE_PATH}/staff`, id));
+        if (staffRecord.email) {
+            await removeStaffAccessRecord(staffRecord.email);
+        }
+        allStaff = allStaff.filter((st) => st.id !== id);
+        await logAuditEvent({
+            category: 'security',
+            action: 'staff.delete',
+            entityType: 'staff',
+            entityId: id,
+            message: `Staff member permanently deleted: ${staffName}`
+        });
+        renderStaffList();
+        renderDashboard();
+        showToast?.('Staff member deleted successfully!', 'success');
+    } catch (err) {
+        console.error('Failed to delete staff member:', err);
+        alert('Failed to delete staff member. Please check your network connection and try again.');
+    }
+};
+
+window.toggleStaffStatus = async (id, nextState) => {
+    if (!requirePermission('staff.manage')) return;
+    const staffRecord = allStaff.find((st) => st.id === id);
+    if (!staffRecord) return;
+    const actionLabel = nextState ? 'activate' : 'deactivate';
+    const staffName = staffRecord.name || 'this staff member';
+    if (!confirm(`Are you sure you want to ${actionLabel} "${staffName}"?`)) return;
+
+    try {
+        await updateDoc(doc(db, `${BASE_PATH}/staff`, id), {
+            isActive: nextState,
+            updatedAt: new Date().toISOString()
+        });
+        staffRecord.isActive = nextState;
+        await syncStaffAccessRecord(staffRecord);
+        await logAuditEvent({
+            category: 'security',
+            action: 'staff.status.toggle',
+            entityType: 'staff',
+            entityId: id,
+            message: `Staff status changed to ${nextState ? 'Active' : 'Inactive'} for ${staffName}`
+        });
+        renderStaffList();
+        renderDashboard();
+        showToast?.(`Staff ${nextState ? 'activated' : 'deactivated'} successfully!`, 'success');
+    } catch (err) {
+        console.error('Failed to update staff status:', err);
+        alert('Failed to update staff status. Please try again.');
+    }
 };
 
 // --- 2. ADD STUDENTS ---

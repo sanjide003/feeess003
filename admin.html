@@ -1603,6 +1603,51 @@
         </div>
     </div>
 
+    <!-- Staff Login Credentials Modal -->
+    <div id="staff-credentials-popup" class="fixed inset-0 popup-overlay items-center justify-center hidden px-4 z-50">
+        <div class="card rounded-2xl shadow-2xl p-6 w-full max-w-md mx-auto bg-white relative">
+            <div class="flex justify-between items-center border-b pb-3 mb-4">
+                <div>
+                    <h3 class="text-xl font-bold text-gray-900 flex items-center gap-2">
+                        <i class="fas fa-key text-violet-600"></i>
+                        <span>Staff Login Credentials</span>
+                    </h3>
+                    <p id="staff-cred-subtitle" class="text-xs text-gray-500 mt-0.5">Staff: --</p>
+                </div>
+                <button type="button" id="staff-cred-close-btn" class="text-gray-400 hover:text-gray-600 p-1.5 rounded-lg hover:bg-gray-100 transition">
+                    <i class="fas fa-times text-lg"></i>
+                </button>
+            </div>
+            <input type="hidden" id="staff-cred-staff-id">
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 mb-1">
+                        <i class="fas fa-envelope text-blue-600 mr-1"></i> Login Email Address <span class="text-red-500">*</span>
+                    </label>
+                    <input type="email" id="staff-cred-email" class="w-full p-2.5 border rounded-lg text-sm bg-white focus:ring-2 focus:ring-violet-500" placeholder="e.g. teacher@institution.com" autocomplete="off">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 mb-1">
+                        <i class="fas fa-lock text-violet-600 mr-1"></i> Login Password <span class="text-red-500">*</span>
+                    </label>
+                    <div class="relative">
+                        <input type="password" id="staff-cred-password" class="w-full p-2.5 pr-10 border rounded-lg text-sm bg-white focus:ring-2 focus:ring-violet-500" placeholder="Enter new password" autocomplete="new-password">
+                        <button type="button" id="staff-cred-toggle-pass" class="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 text-sm p-1">
+                            <i class="fas fa-eye" id="staff-cred-eye-icon"></i>
+                        </button>
+                    </div>
+                    <p class="text-[11px] text-gray-500 mt-1">This password will be used for Staff Portal login (Worksheet, Fee Collection, Results, Admin).</p>
+                </div>
+            </div>
+            <div class="flex justify-end gap-3 pt-4 border-t mt-5">
+                <button type="button" id="staff-cred-cancel-btn" class="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-bold rounded-lg transition">Cancel</button>
+                <button type="button" id="staff-cred-save-btn" class="px-5 py-2 btn-primary text-xs font-bold rounded-lg shadow-sm transition flex items-center gap-1.5">
+                    <i class="fas fa-save"></i> Save Credentials
+                </button>
+            </div>
+        </div>
+    </div>
+
     <!-- Assign Classes & Duty Payment Account Modal -->
     <div id="staff-duty-popup" class="fixed inset-0 popup-overlay items-center justify-center hidden px-4 z-50">
         <div class="card rounded-2xl shadow-2xl p-6 w-full max-w-xl mx-auto bg-white max-h-[90vh] overflow-y-auto relative">
