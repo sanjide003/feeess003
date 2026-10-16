@@ -2284,9 +2284,15 @@
             <form id="quick-settle-form" class="space-y-3 pt-2 border-t border-slate-100">
                 <input type="hidden" id="quick-settle-student-id">
                 
-                <div class="flex items-center justify-between bg-emerald-50 border border-emerald-200 rounded-xl px-3.5 py-2">
-                    <span class="text-xs font-bold text-emerald-900">Total Selected to Collect:</span>
-                    <span id="quick-settle-selected-total" class="text-base font-extrabold font-mono text-emerald-700 tabular-nums">₹0</span>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 bg-emerald-50/70 border border-emerald-200 rounded-xl p-2.5">
+                    <div class="flex items-center justify-between px-2">
+                        <span class="text-xs font-bold text-emerald-950">Selected to Collect:</span>
+                        <span id="quick-settle-selected-total" class="text-base font-extrabold font-mono text-emerald-700 tabular-nums">₹0</span>
+                    </div>
+                    <div class="flex items-center justify-between px-2 border-t sm:border-t-0 sm:border-l border-emerald-200 pt-1.5 sm:pt-0">
+                        <span class="text-xs font-bold text-slate-700">Remaining Balance:</span>
+                        <span id="quick-settle-remaining-balance" class="text-base font-extrabold font-mono text-rose-700 tabular-nums">₹0</span>
+                    </div>
                 </div>
 
                 <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5">

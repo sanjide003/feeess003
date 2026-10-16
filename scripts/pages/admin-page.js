@@ -4054,33 +4054,15 @@ let continuitySelectedStudent = null;
 
 const calculateStudentPreservedDues = (student, exitDate = null) => {
     if (!student) return 0;
-    if (student.discontinuationDetails && typeof student.discontinuationDetails.preservedDues === 'number') {
-        const exitTime = student.discontinuationDetails.date ? new Date(student.discontinuationDetails.date).getTime() : 0;
-        const studentPayments = (allPayments || []).filter(p => p.studentId === student.id || p.admissionNo === student.adm);
-        const postExitPayments = studentPayments.filter(p => {
-            const pTime = p.paymentDate ? new Date(p.paymentDate).getTime() : (p.timestamp || 0);
-            return pTime >= exitTime;
-        }).reduce((sum, p) => sum + Number(p.amount || 0), 0);
-        return Math.max(0, student.discontinuationDetails.preservedDues - postExitPayments);
+    const exitDateStr = exitDate || student.discontinuationDetails?.date || null;
+    const pendingItems = getStudentDetailedPendingFees(student, exitDateStr);
+    if (pendingItems.length > 0) {
+        return pendingItems.reduce((sum, item) => sum + Number(item.amount || 0), 0);
     }
-
-    const monthlyRate = typeof student.concessionFee === 'number'
-        ? Number(student.concessionFee)
-        : (feeItems.find(f => f.type === 'monthly')?.amount || 200);
-
-    const targetDate = exitDate ? new Date(exitDate) : new Date();
-    const startYearStr = (activeAcademicYear || currentAcademicYear).split('-')[0];
-    const academicStart = new Date(Number(startYearStr) || new Date().getFullYear(), 4, 1);
-    let monthsElapsed = (targetDate.getFullYear() - academicStart.getFullYear()) * 12 + (targetDate.getMonth() - academicStart.getMonth()) + 1;
-    if (monthsElapsed < 1) monthsElapsed = 1;
-    if (monthsElapsed > 12) monthsElapsed = 12;
-
-    const totalAssessed = monthsElapsed * monthlyRate;
-    const totalPaid = (allPayments || [])
-        .filter(p => p.studentId === student.id || p.admissionNo === student.adm)
-        .reduce((sum, p) => sum + Number(p.amount || 0), 0);
-
-    return Math.max(0, totalAssessed - totalPaid);
+    if (student.discontinuationDetails && typeof student.discontinuationDetails.preservedDues === 'number') {
+        return Math.max(0, student.discontinuationDetails.preservedDues);
+    }
+    return 0;
 };
 
 const calculateGapDurationText = (startDateStr, endDateStr) => {
@@ -4303,9 +4285,33 @@ const getStudentDetailedPendingFees = (student, exitDateStr = null) => {
 
     const pendingItems = [];
 
+    // Calculate month sequence and cutoff date if exitDateStr is specified
+    const monthSequence = typeof getAcademicMonthSequence === 'function' ? getAcademicMonthSequence(activeYearRecord) : [4, 5, 6, 7, 8, 9, 10, 11, 0, 1, 2, 3];
+    const startYear = parseInt((activeYear || currentAcademicYear).split('-')[0], 10) || new Date().getFullYear();
+
+    // Map month index (0-11) to calendar year and month boundary
+    const monthCalendarMap = new Map();
+    let curYr = startYear;
+    let prevM = -1;
+    monthSequence.forEach(mIdx => {
+        if (prevM !== -1 && mIdx < prevM) {
+            curYr = startYear + 1;
+        }
+        monthCalendarMap.set(mIdx, { year: curYr, month: mIdx });
+        prevM = mIdx;
+    });
+
+    let exitCutoffDate = null;
+    if (exitDateStr) {
+        const parsedExit = new Date(exitDateStr);
+        if (!isNaN(parsedExit.getTime())) {
+            // Cutoff is the last second of the departure month
+            exitCutoffDate = new Date(parsedExit.getFullYear(), parsedExit.getMonth() + 1, 0, 23, 59, 59);
+        }
+    }
+
     // 1. Monthly fee items
     const scopedMonthlyItems = feeItems.filter(item => (item.type || 'month') === 'month' && (item.academicYear || activeYear) === activeYear);
-    const monthSequence = typeof getAcademicMonthSequence === 'function' ? getAcademicMonthSequence(activeYearRecord) : [4, 5, 6, 7, 8, 9, 10, 11, 0, 1, 2, 3];
     
     scopedMonthlyItems.sort((a, b) => {
         const aName = (a.name || '').split('(')[0].trim();
@@ -4316,6 +4322,18 @@ const getStudentDetailedPendingFees = (student, exitDateStr = null) => {
     });
 
     scopedMonthlyItems.forEach(item => {
+        const rawName = (item.name || '').split('(')[0].trim();
+        const mIdx = Array.isArray(MONTH_LABELS) ? MONTH_LABELS.indexOf(rawName) : -1;
+        
+        // If an exit cutoff date exists, only include months that began on or before the departure month
+        if (exitCutoffDate && mIdx !== -1 && monthCalendarMap.has(mIdx)) {
+            const cal = monthCalendarMap.get(mIdx);
+            const monthStart = new Date(cal.year, cal.month, 1);
+            if (monthStart > exitCutoffDate) {
+                return; // Beyond departure month; do not bill
+            }
+        }
+
         const itemKey = `${item.key}__${activeYear}`;
         const isPaid = paidItemKeys.has(itemKey) || studentPayments.some(p => p.itemKey === item.key && (p.academicYear || activeYear) === activeYear);
         if (!isPaid) {
@@ -5110,23 +5128,69 @@ const openContinuityHistoryModal = (studentId) => {
         }
     } else {
         timelineContainer.innerHTML = logs.map((log) => {
-            const isDiscontinue = log.type === 'discontinue';
-            const dotColor = isDiscontinue ? 'bg-rose-600' : 'bg-emerald-600';
-            const borderColor = isDiscontinue ? 'border-rose-300' : 'border-emerald-300';
-            const title = isDiscontinue ? 'Student Discontinued (Departure)' : 'Student Re-admitted (Return)';
-            const titleColor = isDiscontinue ? 'text-rose-800' : 'text-emerald-800';
+            let dotColor = 'bg-slate-400';
+            let borderColor = 'border-slate-200';
+            let title = 'Continuity Event';
+            let titleColor = 'text-slate-800';
+            let icon = 'fa-circle-info';
+
+            const remDues = log.priorBalance !== undefined ? Number(log.priorBalance) : (log.remainingBalance !== undefined ? Number(log.remainingBalance) : null);
+            const collected = Number(log.feesCollected || 0);
+
+            if (log.type === 'discontinue') {
+                dotColor = 'bg-rose-600';
+                borderColor = 'border-rose-300';
+                title = 'Student Discontinued (Departure)';
+                titleColor = 'text-rose-800';
+                icon = 'fa-user-xmark';
+            } else if (log.type === 'fee_collection') {
+                dotColor = 'bg-blue-600';
+                borderColor = 'border-blue-300';
+                title = (remDues === 0) ? 'Full Fee Settlement (Cleared)' : 'Fee Collection (Partial Settlement)';
+                titleColor = 'text-blue-800';
+                icon = 'fa-receipt';
+            } else if (log.type === 'readmit') {
+                dotColor = 'bg-emerald-600';
+                borderColor = 'border-emerald-300';
+                title = 'Student Re-admitted (Return)';
+                titleColor = 'text-emerald-800';
+                icon = 'fa-user-check';
+            }
 
             return `
                 <div class="relative pl-6 pb-4 border-l-2 ${borderColor}">
                     <span class="absolute -left-2 top-0.5 w-4 h-4 rounded-full ${dotColor} border-2 border-white shadow-xs"></span>
                     <div class="flex items-center justify-between">
-                        <span class="font-extrabold text-xs ${titleColor}">${title}</span>
+                        <span class="font-extrabold text-xs ${titleColor} flex items-center gap-1.5">
+                            <i class="fas ${icon} text-[10px]"></i>
+                            ${escapeHtml(title)}
+                        </span>
                         <span class="text-[10px] font-mono tabular-nums text-slate-500">${log.date ? formatDateDisplay(log.date) : formatDateDisplay(log.timestamp)}</span>
                     </div>
-                    <div class="text-[11px] text-slate-600 font-mono mt-0.5">
-                        Year: <b>${escapeHtml(log.academicYear || '--')}</b> · Class: <b>${escapeHtml(log.class || '--')}</b>
-                        ${log.priorBalance !== undefined ? ` · Preserved Dues: <b class="text-rose-700">₹${Number(log.priorBalance).toLocaleString('en-IN')}</b>` : ''}
-                    </div>
+
+                    ${log.type === 'fee_collection' ? `
+                        <div class="mt-1.5 p-2.5 bg-blue-50/70 border border-blue-200/70 rounded-xl space-y-1">
+                            <div class="flex items-center justify-between text-xs font-mono">
+                                <span class="text-blue-900 font-bold">Collected: <b class="text-blue-700">₹${collected.toLocaleString('en-IN')}</b></span>
+                                <span class="text-slate-600">Receipt: <b>#${log.receiptNo || 'Auto'}</b></span>
+                            </div>
+                            <div class="flex items-center justify-between text-[11px] font-mono pt-1 border-t border-blue-100">
+                                <span class="text-slate-600 font-medium">Remaining Preserved Dues:</span>
+                                <span class="font-extrabold ${remDues === 0 ? 'text-emerald-700' : 'text-rose-700'}">₹${(remDues || 0).toLocaleString('en-IN')}</span>
+                            </div>
+                        </div>
+                    ` : `
+                        <div class="text-[11px] text-slate-600 font-mono mt-0.5">
+                            Year: <b>${escapeHtml(log.academicYear || '--')}</b> · Class: <b>${escapeHtml(log.class || '--')}</b>
+                            ${remDues !== null ? ` · Preserved Dues: <b class="text-rose-700">₹${remDues.toLocaleString('en-IN')}</b>` : ''}
+                        </div>
+                        ${collected > 0 ? `
+                            <div class="text-[11px] font-mono text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200/80 mt-1 inline-block">
+                                Fees Collected: <b>₹${collected.toLocaleString('en-IN')}</b> (Receipt #${log.receiptNo || 'Auto'})
+                            </div>
+                        ` : ''}
+                    `}
+
                     ${log.reason ? `<div class="text-xs text-slate-700 mt-1 bg-slate-50 p-2 rounded border border-slate-100 italic">"${escapeHtml(log.reason)}"</div>` : ''}
                     ${Array.isArray(log.gapYears) && log.gapYears.length > 0 ? `<div class="text-[10px] text-emerald-700 mt-1 font-mono">Missed Cycle: ${log.gapYears.join(', ')}</div>` : ''}
                     <div class="text-[10px] text-slate-400 mt-1">Recorded by: ${escapeHtml(log.adminEmail || 'Admin')}</div>
@@ -5197,6 +5261,21 @@ const updateQuickSettleSelectedTotal = () => {
     const totalEl = document.getElementById('quick-settle-selected-total');
     if (totalEl) totalEl.textContent = `₹${total.toLocaleString('en-IN')}`;
 
+    const studentId = document.getElementById('quick-settle-student-id')?.value;
+    const student = (rawStudents || []).find(s => s.id === studentId);
+    const totalPreservedDues = student ? calculateStudentPreservedDues(student) : 0;
+    const remainingBalance = Math.max(0, totalPreservedDues - total);
+
+    const remEl = document.getElementById('quick-settle-remaining-balance');
+    if (remEl) {
+        remEl.textContent = `₹${remainingBalance.toLocaleString('en-IN')}`;
+        if (remainingBalance === 0 && total > 0) {
+            remEl.className = 'text-base font-extrabold font-mono text-emerald-700 tabular-nums';
+        } else {
+            remEl.className = 'text-base font-extrabold font-mono text-rose-700 tabular-nums';
+        }
+    }
+
     const submitBtn = document.getElementById('quick-settle-submit-btn');
     if (submitBtn) {
         submitBtn.disabled = (total <= 0);
@@ -5261,7 +5340,19 @@ const openQuickSettleModal = (studentId) => {
         if (notesInput) notesInput.value = 'Preserved dues settlement';
 
         const exitDateStr = student.discontinuationDetails?.date || null;
-        const pendingItems = getStudentDetailedPendingFees(student, exitDateStr);
+        let pendingItems = getStudentDetailedPendingFees(student, exitDateStr);
+
+        // Fallback for students with preserved lump-sum balance but without individual pending items
+        if (pendingItems.length === 0 && preservedDues > 0) {
+            pendingItems = [{
+                key: 'preserved_dues_balance',
+                name: 'Preserved Outstanding Dues',
+                type: 'custom',
+                amount: preservedDues,
+                academicYear: student.discontinuationDetails?.academicYear || getActiveAcademicYearLabel()
+            }];
+        }
+
         const container = document.getElementById('quick-settle-items-grid');
 
         if (!container) return;
@@ -5347,9 +5438,13 @@ const handleQuickSettleSubmit = async (e) => {
     const paymentDesc = (document.getElementById('quick-settle-notes')?.value || '').trim() || 'Preserved dues settlement';
     const submitBtn = document.getElementById('quick-settle-submit-btn');
 
+    const currentPreservedDues = calculateStudentPreservedDues(student);
+    const newPreservedDues = Math.max(0, currentPreservedDues - totalCollected);
+
     const confirmMsg = `Confirm collecting fee payment:\n\n` +
         `• Student: ${student.name} (Adm: ${student.adm || '--'})\n` +
-        `• Total Amount: ₹${totalCollected.toLocaleString('en-IN')}\n` +
+        `• Total Amount to Collect: ₹${totalCollected.toLocaleString('en-IN')}\n` +
+        `• Remaining Preserved Dues: ₹${newPreservedDues.toLocaleString('en-IN')}\n` +
         `• Receipt No: ${receiptNo || 'Auto'}\n` +
         `• Payment Mode: ${paymentMode}\n` +
         `• Date: ${formatDateDisplay(paymentDate)}\n\n` +
@@ -5399,9 +5494,6 @@ const handleQuickSettleSubmit = async (e) => {
             createdPayments.push({ id: paymentRef.id, ...paymentPayload });
         });
 
-        const currentPreservedDues = calculateStudentPreservedDues(student);
-        const newPreservedDues = Math.max(0, currentPreservedDues - totalCollected);
-
         const currentContinuityLog = Array.isArray(student.continuityLog)
             ? [...student.continuityLog]
             : [];
@@ -5417,7 +5509,8 @@ const handleQuickSettleSubmit = async (e) => {
             adminEmail: currentAdminEmail || 'Admin',
             feesCollected: totalCollected,
             receiptNo: receiptNo,
-            priorBalance: newPreservedDues
+            priorBalance: newPreservedDues,
+            remainingBalance: newPreservedDues
         });
 
         const studentRef = doc(db, `${BASE_PATH}/students`, student.id);
@@ -5442,12 +5535,12 @@ const handleQuickSettleSubmit = async (e) => {
             action: 'payment.create',
             entityType: 'payment',
             entityId: txnId,
-            message: `Collected ₹${totalCollected} for discontinued student ${student.name} (Adm: ${student.adm || '-'}). Receipt: ${receiptNo || '-'}.`
+            message: `Collected ₹${totalCollected} for discontinued student ${student.name} (Adm: ${student.adm || '-'}). Remaining: ₹${newPreservedDues}. Receipt: ${receiptNo || '-'}.`
         });
 
         closeQuickSettleModal();
         renderContinuityPage();
-        alert(`Payment of ₹${totalCollected.toLocaleString('en-IN')} recorded successfully!`);
+        alert(`Payment of ₹${totalCollected.toLocaleString('en-IN')} recorded successfully!${newPreservedDues > 0 ? ` Remaining preserved balance: ₹${newPreservedDues.toLocaleString('en-IN')}.` : ' All dues have been cleared.'}`);
     } catch (err) {
         console.error('Failed to process quick fee settlement:', err);
         alert('Failed to save fee collection. Please check your connection and try again.');
