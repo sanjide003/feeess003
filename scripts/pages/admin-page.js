@@ -7607,26 +7607,44 @@ const closeEditStaffCategoryModal = () => {
 };
 
 const updateDirectoryCategories = async (categories = []) => {
-    webContent.directoryCategories = categories.map(normalizeDirectoryCategory);
-    await updateWebContent();
+    const normalized = categories.map(normalizeDirectoryCategory);
+    webContent.directoryCategories = normalized;
+    // Fast targeted update to Firestore instead of writing all notices & gallery
+    await setDoc(doc(db, `${BASE_PATH}/settings`, 'content'), { directoryCategories: normalized }, { merge: true });
     renderDirectoryCategories();
 };
 
 document.getElementById('dir-cat-add-btn')?.addEventListener('click', async () => {
     if(!requirePermission('website.manage') && !requirePermission('staff.manage')) return;
+    const addBtn = document.getElementById('dir-cat-add-btn');
     const name = document.getElementById('dir-cat-name')?.value?.trim() || '';
     const order = Number(document.getElementById('dir-cat-order')?.value || 1);
     const showPublic = document.getElementById('dir-cat-public')?.checked !== false;
     if (!name) return alert('Enter a category name.');
-    const categories = getAllStaffCategories();
-    categories.push(normalizeDirectoryCategory({
-        name,
-        order,
-        showPublic,
-        fields: DEFAULT_STAFF_CATEGORY_FIELDS.map((f) => ({ ...f }))
-    }));
-    await updateDirectoryCategories(categories);
-    document.getElementById('dir-cat-name').value = '';
+    const origHtml = addBtn ? addBtn.innerHTML : 'Add';
+    if (addBtn) {
+        addBtn.disabled = true;
+        addBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i> Adding...';
+    }
+    try {
+        const categories = getAllStaffCategories();
+        categories.push(normalizeDirectoryCategory({
+            name,
+            order,
+            showPublic,
+            fields: DEFAULT_STAFF_CATEGORY_FIELDS.map((f) => ({ ...f }))
+        }));
+        await updateDirectoryCategories(categories);
+        document.getElementById('dir-cat-name').value = '';
+    } catch (err) {
+        console.error('Failed to add category:', err);
+        alert(`Failed to add category: ${err?.message || 'Error occurred.'}`);
+    } finally {
+        if (addBtn) {
+            addBtn.disabled = false;
+            addBtn.innerHTML = origHtml;
+        }
+    }
 });
 
 document.getElementById('dir-categories-list')?.addEventListener('click', async (event) => {
@@ -7707,36 +7725,56 @@ document.getElementById('edit-staff-cat-add-field-btn')?.addEventListener('click
 
 document.getElementById('edit-staff-cat-save-btn')?.addEventListener('click', async () => {
     if (!requirePermission('website.manage') && !requirePermission('staff.manage')) return;
+    const saveBtn = document.getElementById('edit-staff-cat-save-btn');
     const categoryId = document.getElementById('edit-staff-cat-id')?.value;
     const name = document.getElementById('edit-staff-cat-name')?.value?.trim();
     const order = Number(document.getElementById('edit-staff-cat-order')?.value || 1);
     const showPublic = document.getElementById('edit-staff-cat-public')?.checked !== false;
     if (!name) return alert('Category name is required.');
 
-    const activeFields = currentEditingCategoryDraftFields
-        .filter((f) => f.active)
-        .map((f, i) => normalizeDirectoryField({
-            id: f.id || `field_${f.key}`,
-            key: f.key,
-            label: f.label,
-            type: f.type,
-            required: f.key === 'name' ? true : Boolean(f.required),
-            order: i + 1,
-            locked: f.key === 'name'
-        }));
+    const origBtnHtml = saveBtn ? saveBtn.innerHTML : 'Save Changes';
+    if (saveBtn) {
+        saveBtn.disabled = true;
+        saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i> Saving...';
+    }
 
-    const categories = getAllStaffCategories();
-    const next = categories.map((c) => c.id === categoryId ? {
-        ...c,
-        id: categoryId,
-        name,
-        order,
-        showPublic,
-        fields: activeFields
-    } : c);
+    try {
+        const activeFields = currentEditingCategoryDraftFields
+            .filter((f) => f.active)
+            .map((f, i) => normalizeDirectoryField({
+                id: f.id || `field_${f.key}`,
+                key: f.key,
+                label: f.label,
+                type: f.type,
+                required: f.key === 'name' ? true : Boolean(f.required),
+                order: i + 1,
+                locked: f.key === 'name'
+            }));
 
-    await updateDirectoryCategories(next);
-    closeEditStaffCategoryModal();
+        const categories = getAllStaffCategories();
+        const next = categories.map((c) => c.id === categoryId ? {
+            ...c,
+            id: categoryId,
+            name,
+            order,
+            showPublic,
+            fields: activeFields
+        } : c);
+
+        await updateDirectoryCategories(next);
+        closeEditStaffCategoryModal();
+        if (typeof showToast === 'function') {
+            showToast('Category updated successfully!', 'success');
+        }
+    } catch (err) {
+        console.error('Failed to save category:', err);
+        alert(`Failed to save: ${err?.message || 'Error occurred.'}`);
+    } finally {
+        if (saveBtn) {
+            saveBtn.disabled = false;
+            saveBtn.innerHTML = origBtnHtml;
+        }
+    }
 });
 document.getElementById('dir-field-category')?.addEventListener('change', () => { renderDirectoryFields(); });
 document.getElementById('dir-entry-category')?.addEventListener('change', () => { renderDirectoryEntryForm(); renderDirectoryEntries(); });

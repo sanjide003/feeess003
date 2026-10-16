@@ -244,9 +244,11 @@ import { BASE_PATH, applyInstitutionBranding, escapeHtml, hardenExternalLinks, n
 
         registerServiceWorker();
         let allStudents = [], selectedLoginStudent = null;
+        let allStaffCategories = [];
         let directoryCategories = [];
         let directoryEntries = [];
         let staffDirectoryEntries = [];
+        let cachedActiveStaff = [];
         let categoryAuthConfig = { categories: {} };
         let pageAccessConfig = { categories: {}, overrides: {} };
         const normalizeCategoryAuthItem = (raw = {}) => ({
@@ -533,6 +535,7 @@ import { BASE_PATH, applyInstitutionBranding, escapeHtml, hardenExternalLinks, n
                     onSnapshot(doc(db, `${BASE_PATH}/settings`, 'content'), snap => {
                         const content = snap.exists() ? snap.data() : {};
                         const rawDirCats = Array.isArray(content.directoryCategories) ? content.directoryCategories : [];
+                        allStaffCategories = rawDirCats;
                         directoryCategories = rawDirCats.filter((c) => c && !['Teacher', 'Management'].includes(String(c.id || '').trim()));
                         const aboutDescEl = document.getElementById('about-desc');
                         if (aboutDescEl) {
@@ -636,6 +639,7 @@ import { BASE_PATH, applyInstitutionBranding, escapeHtml, hardenExternalLinks, n
                         
                         loaded.content = true; triggerAnim();
                         renderDynamicDirectory();
+                        if (typeof renderStaffDirectory === 'function') renderStaffDirectory();
                     });
 
                     onSnapshot(collection(db, `${BASE_PATH}/publicDirectory`), snap => {
@@ -651,10 +655,18 @@ import { BASE_PATH, applyInstitutionBranding, escapeHtml, hardenExternalLinks, n
                         pageAccessConfig = (payload && typeof payload === 'object') ? payload : { categories: {}, overrides: {} };
                     });
 
-                    onSnapshot(collection(db, `${BASE_PATH}/staff`), snap => {
-                        const allStaff = snap.docs.map(d => ({id: d.id, ...d.data()}));
-                        const activeStaff = allStaff.filter(s => s.isActive);
-                        staffDirectoryEntries = activeStaff
+                    const isCategoryPubliclyVisible = (categoryId = '') => {
+                        const target = String(categoryId || '').trim().toLowerCase();
+                        const match = allStaffCategories.find((c) => c && (String(c.id || '').trim().toLowerCase() === target || String(c.name || '').trim().toLowerCase() === target));
+                        // Default categories (Teacher & Management) and all categories are shown by default unless explicitly set to false
+                        return match ? match.showPublic !== false : true;
+                    };
+
+                    const renderStaffDirectory = () => {
+                        const isTeacherPublic = isCategoryPubliclyVisible('Teacher');
+                        const isMgmtPublic = isCategoryPubliclyVisible('Management');
+
+                        staffDirectoryEntries = cachedActiveStaff
                             .filter((staffMember) => staffMember.showPublic !== false && directoryCategories.some((category) => category.id === staffMember.type && category.showPublic !== false))
                             .map((staffMember) => ({
                                 id: `staff:${staffMember.id}`,
@@ -675,28 +687,40 @@ import { BASE_PATH, applyInstitutionBranding, escapeHtml, hardenExternalLinks, n
                             if (orderDiff !== 0) return orderDiff;
                             return String(a?.name || '').localeCompare(String(b?.name || ''));
                         });
-                        const publicStaff = activeStaff.filter((staffMember) => staffMember.showPublic !== false);
+                        const publicStaff = cachedActiveStaff.filter((staffMember) => staffMember.showPublic !== false);
                         const teachers = sortByDisplayOrder(publicStaff.filter(s => s.type === 'Teacher'));
                         const mgmt = sortByDisplayOrder(publicStaff.filter(s => s.type === 'Management'));
                         
-                        const renderStaffList = (id, list, contId, linkId, btnId) => {
+                        const renderStaffList = (id, list, contId, linkId, btnId, isCategoryVisible) => {
                             const cont = document.getElementById(contId);
+                            const navLink = linkId ? document.getElementById(linkId) : null;
+                            const heroBtn = btnId ? document.getElementById(btnId) : null;
+                            if (!cont) return;
+
+                            // If category is configured not to show publicly, hide container, nav menu link, and hero button
+                            if (!isCategoryVisible) {
+                                cont.classList.add('hidden');
+                                if (navLink) navLink.classList.add('hidden');
+                                if (heroBtn) heroBtn.classList.add('hidden');
+                                return;
+                            }
+
                             const forceShow = id === 'teachers-list';
-                            if(!list.length) { 
+                            if (!list.length) { 
                                 if (forceShow) {
                                     cont.classList.remove('hidden');
-                                    if(document.getElementById(linkId)) document.getElementById(linkId).classList.remove('hidden');
-                                    if(document.getElementById(btnId)) document.getElementById(btnId).classList.remove('hidden');
+                                    if (navLink) navLink.classList.remove('hidden');
+                                    if (heroBtn) heroBtn.classList.remove('hidden');
                                     document.getElementById(id).innerHTML = '<p class="text-sm text-gray-500 italic">No profiles available.</p>';
                                 } else {
                                     cont.classList.add('hidden'); 
-                                    if(document.getElementById(linkId)) document.getElementById(linkId).classList.add('hidden'); 
-                                    if(document.getElementById(btnId)) document.getElementById(btnId).classList.add('hidden'); 
+                                    if (navLink) navLink.classList.add('hidden'); 
+                                    if (heroBtn) heroBtn.classList.add('hidden'); 
                                 }
                             } else { 
                                 cont.classList.remove('hidden'); 
-                                if(document.getElementById(linkId)) document.getElementById(linkId).classList.remove('hidden'); 
-                                if(document.getElementById(btnId)) document.getElementById(btnId).classList.remove('hidden'); 
+                                if (navLink) navLink.classList.remove('hidden'); 
+                                if (heroBtn) heroBtn.classList.remove('hidden'); 
                                 
                                 document.getElementById(id).innerHTML = list.map((p) => {
                                     const safePhoto = (p.photo && p.photo.startsWith('data:')) ? p.photo : (sanitizeUrl(p.photo) || 'https://via.placeholder.com/150?text=User');
@@ -705,10 +729,19 @@ import { BASE_PATH, applyInstitutionBranding, escapeHtml, hardenExternalLinks, n
                             }
                         };
                         
-                        renderStaffList('teachers-list', teachers, 'teachers-container', 'nav-teachers-link', 'hero-btn-teachers');
-                        renderStaffList('comm-list', mgmt, 'management-container', 'nav-management-link', null);
+                        renderStaffList('teachers-list', teachers, 'teachers-container', 'nav-teachers-link', 'hero-btn-teachers', isTeacherPublic);
+                        renderStaffList('comm-list', mgmt, 'management-container', 'nav-management-link', null, isMgmtPublic);
                         
-                        document.getElementById('stat-staff').textContent = teachers.length;
+                        const statStaffEl = document.getElementById('stat-staff');
+                        if (statStaffEl) {
+                            statStaffEl.textContent = isTeacherPublic ? teachers.length : 0;
+                        }
+                    };
+
+                    onSnapshot(collection(db, `${BASE_PATH}/staff`), snap => {
+                        const allStaff = snap.docs.map(d => ({id: d.id, ...d.data()}));
+                        cachedActiveStaff = allStaff.filter(s => s.isActive);
+                        renderStaffDirectory();
                         loaded.staff = true; triggerAnim();
                     });
 
