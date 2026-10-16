@@ -4272,12 +4272,30 @@ const getNextReceiptNo = () => {
     return receipts.length ? Math.max(...receipts) + 1 : 1;
 };
 
+const parseAcademicStartYear = (yrLabel) => {
+    if (!yrLabel) return 0;
+    const match = String(yrLabel).match(/^(\d{4})/);
+    return match ? parseInt(match[1], 10) : 0;
+};
+
 const getStudentDetailedPendingFees = (student, exitDateStr = null) => {
     if (!student) return [];
-    const activeYear = getActiveAcademicYearLabel();
-    const activeYearRecord = getActiveAcademicYearRecord();
+
+    const effectiveExitDateStr = exitDateStr || student.discontinuationDetails?.date || null;
+    const isDiscontinued = (normalizeStudentStatus(student.status) === 'Discontinued') || Boolean(student.discontinuationDetails?.date);
+
+    // Target academic year: For discontinued students, strictly evaluate against their exit year (or enrollment year)
+    let targetAcademicYear = getActiveAcademicYearLabel();
+    if (isDiscontinued) {
+        targetAcademicYear = student.discontinuationDetails?.academicYear || student.academicYear || targetAcademicYear;
+    }
+
+    const targetYearRecord = (typeof allAcademicYears !== 'undefined' && Array.isArray(allAcademicYears))
+        ? allAcademicYears.find(y => y.label === targetAcademicYear || y.id === targetAcademicYear)
+        : getActiveAcademicYearRecord();
+
     const studentPayments = (allPayments || []).filter(p => p.studentId === student.id || p.admissionNo === student.adm);
-    const paidItemKeys = new Set(studentPayments.map(p => `${p.itemKey}__${p.academicYear || activeYear}`));
+    const paidItemKeys = new Set(studentPayments.map(p => `${p.itemKey}__${p.academicYear || targetAcademicYear}`));
 
     const effectiveMonthlyFee = (student.concessionFee !== undefined && student.concessionFee !== null && student.concessionFee !== '')
         ? Number(student.concessionFee)
@@ -4285,11 +4303,25 @@ const getStudentDetailedPendingFees = (student, exitDateStr = null) => {
 
     const pendingItems = [];
 
-    // Calculate month sequence and cutoff date if exitDateStr is specified
-    const monthSequence = typeof getAcademicMonthSequence === 'function' ? getAcademicMonthSequence(activeYearRecord) : [4, 5, 6, 7, 8, 9, 10, 11, 0, 1, 2, 3];
-    const startYear = parseInt((activeYear || currentAcademicYear).split('-')[0], 10) || new Date().getFullYear();
+    // Parse Exit Boundaries
+    let exitCutoffDate = null;
+    let exitCutoffTimestamp = null;
+    if (effectiveExitDateStr) {
+        const parsedExit = new Date(effectiveExitDateStr);
+        if (!isNaN(parsedExit.getTime())) {
+            // Cutoff timestamp is the end of the departure day (23:59:59.999)
+            exitCutoffTimestamp = new Date(parsedExit.getFullYear(), parsedExit.getMonth(), parsedExit.getDate(), 23, 59, 59, 999).getTime();
+            // Monthly fee cutoff: end of the departure month
+            exitCutoffDate = new Date(parsedExit.getFullYear(), parsedExit.getMonth() + 1, 0, 23, 59, 59);
+        }
+    }
 
-    // Map month index (0-11) to calendar year and month boundary
+    const exitStartYear = parseAcademicStartYear(targetAcademicYear);
+
+    // 1. Monthly fee items
+    const monthSequence = typeof getAcademicMonthSequence === 'function' ? getAcademicMonthSequence(targetYearRecord) : [4, 5, 6, 7, 8, 9, 10, 11, 0, 1, 2, 3];
+    const startYear = parseAcademicStartYear(targetAcademicYear) || new Date().getFullYear();
+
     const monthCalendarMap = new Map();
     let curYr = startYear;
     let prevM = -1;
@@ -4301,18 +4333,15 @@ const getStudentDetailedPendingFees = (student, exitDateStr = null) => {
         prevM = mIdx;
     });
 
-    let exitCutoffDate = null;
-    if (exitDateStr) {
-        const parsedExit = new Date(exitDateStr);
-        if (!isNaN(parsedExit.getTime())) {
-            // Cutoff is the last second of the departure month
-            exitCutoffDate = new Date(parsedExit.getFullYear(), parsedExit.getMonth() + 1, 0, 23, 59, 59);
-        }
-    }
+    const scopedMonthlyItems = feeItems.filter(item => {
+        const itemType = item.type || 'month';
+        if (itemType !== 'month') return false;
+        const itemYear = item.academicYear || targetAcademicYear;
+        // Discontinued students must NEVER be billed for future academic years
+        if (isDiscontinued && parseAcademicStartYear(itemYear) > exitStartYear) return false;
+        return itemYear === targetAcademicYear;
+    });
 
-    // 1. Monthly fee items
-    const scopedMonthlyItems = feeItems.filter(item => (item.type || 'month') === 'month' && (item.academicYear || activeYear) === activeYear);
-    
     scopedMonthlyItems.sort((a, b) => {
         const aName = (a.name || '').split('(')[0].trim();
         const bName = (b.name || '').split('(')[0].trim();
@@ -4324,47 +4353,83 @@ const getStudentDetailedPendingFees = (student, exitDateStr = null) => {
     scopedMonthlyItems.forEach(item => {
         const rawName = (item.name || '').split('(')[0].trim();
         const mIdx = Array.isArray(MONTH_LABELS) ? MONTH_LABELS.indexOf(rawName) : -1;
-        
+
         // If an exit cutoff date exists, only include months that began on or before the departure month
         if (exitCutoffDate && mIdx !== -1 && monthCalendarMap.has(mIdx)) {
             const cal = monthCalendarMap.get(mIdx);
             const monthStart = new Date(cal.year, cal.month, 1);
             if (monthStart > exitCutoffDate) {
-                return; // Beyond departure month; do not bill
+                return; // Month started after departure date; do not bill
             }
         }
 
-        const itemKey = `${item.key}__${activeYear}`;
-        const isPaid = paidItemKeys.has(itemKey) || studentPayments.some(p => p.itemKey === item.key && (p.academicYear || activeYear) === activeYear);
+        const itemKey = `${item.key}__${targetAcademicYear}`;
+        const isPaid = paidItemKeys.has(itemKey) || studentPayments.some(p => p.itemKey === item.key && (p.academicYear || targetAcademicYear) === targetAcademicYear);
         if (!isPaid) {
             pendingItems.push({
                 key: item.key,
                 name: item.name || 'Monthly Fee',
                 type: 'month',
                 amount: effectiveMonthlyFee,
-                academicYear: activeYear
+                academicYear: targetAcademicYear
             });
         }
     });
 
     // 2. Custom / Other fee items
-    const scopedCustomItems = feeItems.filter(item => item.type === 'custom' && (item.academicYear || activeYear) === activeYear && item.isVisible !== false);
+    const studentClass = student.discontinuationDetails?.lastClass || student.class || '';
+
+    const scopedCustomItems = feeItems.filter(item => {
+        if (item.type !== 'custom' || item.isVisible === false) return false;
+        const itemYear = item.academicYear || targetAcademicYear;
+        // Discontinued students must NEVER be billed for future academic years
+        if (isDiscontinued && parseAcademicStartYear(itemYear) > exitStartYear) return false;
+        return itemYear === targetAcademicYear;
+    });
+
     scopedCustomItems.forEach(item => {
+        // If student has an exit cutoff timestamp, check if item was added or effective AFTER departure
+        if (exitCutoffTimestamp) {
+            let itemTimestamp = null;
+            if (item.timestamp && Number.isFinite(Number(item.timestamp))) {
+                itemTimestamp = Number(item.timestamp);
+            } else if (item.createdAt) {
+                const parsedCreated = new Date(item.createdAt).getTime();
+                if (!isNaN(parsedCreated)) itemTimestamp = parsedCreated;
+            } else if (typeof item.key === 'string' && item.key.startsWith('custom-')) {
+                const num = parseInt(item.key.replace('custom-', ''), 10);
+                if (!isNaN(num) && num > 1000000000) itemTimestamp = num;
+            }
+
+            // If item was created in settings after the student's exit date, DO NOT charge the student
+            if (itemTimestamp && itemTimestamp > exitCutoffTimestamp) {
+                return;
+            }
+
+            // If fee item has an explicit date or effective date after departure, DO NOT charge
+            if (item.date || item.effectiveDate) {
+                const itemDate = new Date(item.date || item.effectiveDate).getTime();
+                if (!isNaN(itemDate) && itemDate > exitCutoffTimestamp) {
+                    return;
+                }
+            }
+        }
+
         let amount = 0;
         if (item.scope === 'global') amount = Number(item.amount || 0);
-        else if (item.scope === 'class-wise' && item.classValues) amount = Number(item.classValues[student.class] || 0);
-        else if (item.scope === 'specific' && item.targetClass === student.class) amount = Number(item.amount || 0);
+        else if (item.scope === 'class-wise' && item.classValues) amount = Number(item.classValues[studentClass] || 0);
+        else if (item.scope === 'specific' && item.targetClass === studentClass) amount = Number(item.amount || 0);
 
         if (amount > 0) {
-            const itemKey = `${item.key}__${activeYear}`;
-            const isPaid = paidItemKeys.has(itemKey) || studentPayments.some(p => p.itemKey === item.key && (p.academicYear || activeYear) === activeYear);
+            const itemKey = `${item.key}__${targetAcademicYear}`;
+            const isPaid = paidItemKeys.has(itemKey) || studentPayments.some(p => p.itemKey === item.key && (p.academicYear || targetAcademicYear) === targetAcademicYear);
             if (!isPaid) {
                 pendingItems.push({
                     key: item.key,
                     name: item.name || 'Other Fee',
                     type: 'custom',
                     amount: amount,
-                    academicYear: activeYear
+                    academicYear: targetAcademicYear
                 });
             }
         }
@@ -7024,9 +7089,21 @@ document.getElementById('adv-fee-scope').addEventListener('change', (e) => {
 
 document.getElementById('add-adv-fee-btn').addEventListener('click', () => {
     if(!requirePermission('fees.manage')) return;
-    const name = document.getElementById('adv-fee-name').value.trim(), scope = document.getElementById('adv-fee-scope').value, isMandatory = document.getElementById('adv-fee-receipt-req').checked;
-    if(!name) return alert("Fee Item Name is mandatory.");
-    let feeData = { key: `custom-${Date.now()}`, name: name, type: 'custom', isVisible: true, scope: scope, isReceiptMandatory: isMandatory, academicYear: getActiveAcademicYearLabel() };
+    const name = document.getElementById('adv-fee-name')?.value.trim();
+    const scope = document.getElementById('adv-fee-scope')?.value;
+    const isMandatory = document.getElementById('adv-fee-receipt-req')?.checked || false;
+    if (!name) return alert("Fee Item Name is mandatory.");
+    let feeData = {
+        key: `custom-${Date.now()}`,
+        name: name,
+        type: 'custom',
+        isVisible: true,
+        scope: scope,
+        isReceiptMandatory: isMandatory,
+        academicYear: getActiveAcademicYearLabel(),
+        createdAt: new Date().toISOString(),
+        timestamp: Date.now()
+    };
 
     if(scope === 'global') {
         const amt = parseFloat(document.getElementById('adv-fee-global-amt').value); if(isNaN(amt)) return alert("Enter valid global amount"); feeData.amount = amt;
@@ -7269,10 +7346,21 @@ document.getElementById('e-fee-update').onclick = () => {
     if(!requirePermission('fees.manage')) return;
     const key = document.getElementById('e-fee-key').value, name = document.getElementById('e-fee-name').value.trim(), scope = document.getElementById('e-fee-scope').value;
     if(!name) return alert("Name is mandatory.");
-
     if(!confirm("Save changes to this fee item?")) return;
 
-    let updatedFee = { key, name, type: 'custom', isVisible: true, scope, isReceiptMandatory: document.getElementById('e-fee-receipt-req').checked, academicYear: getActiveAcademicYearLabel() };
+    const existingFee = feeItems.find(f => f.key === key) || {};
+    let updatedFee = {
+        ...existingFee,
+        key,
+        name,
+        type: 'custom',
+        isVisible: true,
+        scope,
+        isReceiptMandatory: document.getElementById('e-fee-receipt-req').checked,
+        academicYear: existingFee.academicYear || getActiveAcademicYearLabel(),
+        createdAt: existingFee.createdAt || new Date().toISOString(),
+        timestamp: existingFee.timestamp || Date.now()
+    };
 
     if(scope === 'global') {
         const amt = parseFloat(document.getElementById('e-fee-global-amt').value); if(isNaN(amt)) return alert("Enter valid amount"); updatedFee.amount = amt;
