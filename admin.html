@@ -667,33 +667,33 @@
                     </div>
                 </div>
 
-                <!-- Panel A: Discontinue Student Action Panel -->
-                <div class="card p-6 rounded-2xl border-slate-200 bg-white shadow-sm space-y-5">
-                    <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+                <!-- Panel A: Discontinue Student Action Panel (Compact Layout) -->
+                <div class="card p-4 sm:p-5 rounded-xl border border-slate-200 bg-white shadow-xs space-y-3.5">
+                    <div class="flex items-center justify-between border-b border-slate-100 pb-2.5">
                         <div class="flex items-center gap-2">
                             <span class="w-2.5 h-2.5 rounded-full bg-rose-600"></span>
-                            <h3 class="text-base font-bold text-slate-900">Discontinue Student</h3>
+                            <h3 class="text-sm sm:text-base font-bold text-slate-900">Discontinue Student</h3>
                         </div>
-                        <span class="text-xs text-slate-500">Preserves prior dues · Zero fees during gap</span>
+                        <span class="text-[11px] text-slate-500">Preserves prior dues · Zero fees during gap</span>
                     </div>
 
-                    <form id="discontinue-student-form" class="space-y-4">
-                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <form id="discontinue-student-form" class="space-y-3">
+                        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5">
                             <!-- Filter Class (Optional) -->
                             <div>
-                                <label for="continuity-class-select" class="block text-xs font-bold text-slate-700 mb-1.5">1. Filter Class (Optional)</label>
-                                <select id="continuity-class-select" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-800 focus:outline-none focus:border-slate-400 focus:bg-white transition">
+                                <label for="continuity-class-select" class="block text-[11px] font-bold text-slate-700 mb-1">1. Filter Class</label>
+                                <select id="continuity-class-select" class="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-800 focus:outline-none focus:border-slate-400 focus:bg-white transition">
                                     <option value="">All Classes</option>
                                 </select>
                             </div>
 
                             <!-- Search Student with Instant Suggestions -->
                             <div class="relative">
-                                <label for="continuity-student-search-input" class="block text-xs font-bold text-slate-700 mb-1.5">2. Search Student (Name / Adm No) <span class="text-rose-500">*</span></label>
+                                <label for="continuity-student-search-input" class="block text-[11px] font-bold text-slate-700 mb-1">2. Search Student <span class="text-rose-500">*</span></label>
                                 <div class="relative">
-                                    <input type="text" id="continuity-student-search-input" autocomplete="off" placeholder="Type student name or adm no..." class="w-full pl-9 pr-8 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-800 focus:outline-none focus:border-indigo-500 focus:bg-white transition">
-                                    <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
-                                    <button type="button" id="continuity-clear-search-btn" class="hidden absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-1" title="Clear selection">
+                                    <input type="text" id="continuity-student-search-input" autocomplete="off" placeholder="Name or Adm No..." class="w-full pl-8 pr-7 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-800 focus:outline-none focus:border-indigo-500 focus:bg-white transition">
+                                    <i class="fas fa-search absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
+                                    <button type="button" id="continuity-clear-search-btn" class="hidden absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-0.5" title="Clear selection">
                                         <i class="fas fa-times text-xs"></i>
                                     </button>
                                 </div>
@@ -703,25 +703,25 @@
 
                             <!-- Departure Date -->
                             <div>
-                                <label for="continuity-exit-date" class="block text-xs font-bold text-slate-700 mb-1.5">3. Departure Date</label>
-                                <input type="date" id="continuity-exit-date" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-800 focus:outline-none focus:border-slate-400 focus:bg-white transition font-mono tabular-nums">
+                                <label for="continuity-exit-date" class="block text-[11px] font-bold text-slate-700 mb-1">3. Departure Date</label>
+                                <input type="date" id="continuity-exit-date" class="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-800 focus:outline-none focus:border-slate-400 focus:bg-white transition font-mono tabular-nums">
+                            </div>
+
+                            <!-- Departure Reason / Notes -->
+                            <div>
+                                <label for="continuity-exit-reason" class="block text-[11px] font-bold text-slate-700 mb-1">4. Departure Reason</label>
+                                <input type="text" id="continuity-exit-reason" placeholder="e.g. Relocated, Madrasa transfer..." class="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-800 focus:outline-none focus:border-slate-400 focus:bg-white transition">
                             </div>
                         </div>
 
-                        <!-- Departure Reason / Notes -->
-                        <div>
-                            <label for="continuity-exit-reason" class="block text-xs font-bold text-slate-700 mb-1.5">4. Departure Reason &amp; Administrative Notes</label>
-                            <input type="text" id="continuity-exit-reason" placeholder="e.g. Relocated to another town, Madrasa transfer, medical reasons..." class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-800 focus:outline-none focus:border-slate-400 focus:bg-white transition">
-                        </div>
-
-                        <!-- Selected Student Preview Card -->
-                        <div id="continuity-student-preview" class="hidden p-4 rounded-xl border border-slate-200 bg-slate-50 space-y-3">
-                            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-200/80 pb-3">
-                                <div class="flex items-center gap-3">
-                                    <img id="continuity-preview-photo" src="assets/images/placeholder.svg" alt="Student Photo" class="w-12 h-12 rounded-full object-cover border border-slate-200 bg-white shrink-0">
-                                    <div>
-                                        <div id="continuity-preview-name" class="text-sm font-extrabold text-slate-900 leading-tight">Student Name</div>
-                                        <div class="text-xs text-slate-600 font-mono mt-0.5 space-x-2">
+                        <!-- Selected Student Preview Card (Compact) -->
+                        <div id="continuity-student-preview" class="hidden p-3 rounded-xl border border-slate-200 bg-slate-50/80 space-y-2">
+                            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 border-b border-slate-200/80 pb-2">
+                                <div class="flex items-center gap-2.5 min-w-0">
+                                    <img id="continuity-preview-photo" src="assets/images/placeholder.svg" alt="Student Photo" class="w-10 h-10 rounded-full object-cover border border-slate-200 bg-white shrink-0">
+                                    <div class="min-w-0">
+                                        <div id="continuity-preview-name" class="text-xs sm:text-sm font-extrabold text-slate-900 leading-tight truncate">Student Name</div>
+                                        <div class="text-[11px] text-slate-600 font-mono mt-0.5 space-x-1.5 truncate">
                                             <span>Adm: <b id="continuity-preview-adm" class="text-slate-800">--</b></span>
                                             <span>·</span>
                                             <span>Class: <b id="continuity-preview-class" class="text-slate-800">--</b></span>
@@ -730,65 +730,64 @@
                                         </div>
                                     </div>
                                 </div>
-                                <div class="text-left sm:text-right">
-                                    <div class="text-[10px] font-bold uppercase tracking-wider text-slate-500">Unpaid Prior Dues</div>
-                                    <div id="continuity-preview-dues" class="text-lg font-extrabold text-rose-700 font-mono tabular-nums">₹0</div>
-                                    <div class="text-[10px] text-slate-500">Preserved for future collection</div>
+                                <div class="flex sm:flex-col items-center sm:items-end justify-between shrink-0">
+                                    <span class="text-[10px] font-bold uppercase tracking-wider text-slate-500">Unpaid Dues:</span>
+                                    <span id="continuity-preview-dues" class="text-base font-extrabold text-rose-700 font-mono tabular-nums">₹0</span>
                                 </div>
                             </div>
-                            <div class="flex flex-wrap items-center justify-between gap-3 text-xs text-slate-600">
+                            <div class="flex flex-wrap items-center justify-between gap-2 text-[11px] text-slate-600">
                                 <div>Guardian: <span id="continuity-preview-guardian" class="font-bold text-slate-800">--</span> · Phone: <span id="continuity-preview-phone" class="font-mono tabular-nums text-slate-800">--</span></div>
-                                <div class="text-[11px] text-amber-800 bg-amber-50 px-2.5 py-1 rounded border border-amber-200">
-                                    Student will be archived from active attendance and daily registers.
+                                <div class="text-[10px] text-amber-800 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
+                                    Archived from active attendance registers.
                                 </div>
                             </div>
                         </div>
 
-                        <!-- 5. Outstanding Fee Breakdown & Immediate Settlement (Optional) -->
-                        <div id="continuity-fee-settlement-wrap" class="hidden rounded-xl border border-indigo-100 bg-gradient-to-br from-indigo-50/50 via-white to-slate-50 p-4 space-y-4">
-                            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-indigo-100 pb-2.5">
+                        <!-- 5. Outstanding Fee Breakdown & Immediate Settlement (Compact Grid) -->
+                        <div id="continuity-fee-settlement-wrap" class="hidden rounded-xl border border-indigo-100 bg-gradient-to-br from-indigo-50/40 via-white to-slate-50 p-3 sm:p-3.5 space-y-2.5">
+                            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5 border-b border-indigo-100 pb-2">
                                 <div class="flex items-center gap-2">
-                                    <span class="w-7 h-7 rounded-lg bg-indigo-600 text-white flex items-center justify-center text-xs shadow-xs"><i class="fas fa-receipt"></i></span>
+                                    <span class="w-6 h-6 rounded-lg bg-indigo-600 text-white flex items-center justify-center text-xs shadow-xs"><i class="fas fa-receipt"></i></span>
                                     <div>
-                                        <h4 class="text-xs font-extrabold text-indigo-950 uppercase tracking-wide">Outstanding Fees &amp; Immediate Settlement (Optional)</h4>
-                                        <p class="text-[11px] text-slate-500">Detailed pending fee items/months. Optionally select items to collect fees right now.</p>
+                                        <h4 class="text-xs font-extrabold text-indigo-950 uppercase tracking-wide">Outstanding Fees (Optional Settlement)</h4>
+                                        <p class="text-[10px] text-slate-500">Click any card to select/deselect items for immediate collection.</p>
                                     </div>
                                 </div>
-                                <div class="flex items-center gap-2">
-                                    <button type="button" id="continuity-fee-select-all-btn" class="px-2.5 py-1 bg-white border border-indigo-200 hover:bg-indigo-50 text-indigo-700 text-xs font-bold rounded-lg transition">Select All</button>
-                                    <button type="button" id="continuity-fee-deselect-all-btn" class="px-2.5 py-1 bg-white border border-slate-200 hover:bg-slate-50 text-slate-600 text-xs font-bold rounded-lg transition">Deselect All</button>
+                                <div class="flex items-center gap-1.5">
+                                    <button type="button" id="continuity-fee-select-all-btn" class="px-2 py-0.5 bg-white border border-indigo-200 hover:bg-indigo-50 text-indigo-700 text-[11px] font-bold rounded transition">Select All</button>
+                                    <button type="button" id="continuity-fee-deselect-all-btn" class="px-2 py-0.5 bg-white border border-slate-200 hover:bg-slate-50 text-slate-600 text-[11px] font-bold rounded transition">Deselect All</button>
                                 </div>
                             </div>
 
-                            <!-- Outstanding Fee Items Breakdown List -->
-                            <div id="continuity-fee-items-container" class="space-y-1.5 max-h-56 overflow-y-auto pr-1">
-                                <!-- Rendered dynamically -->
+                            <!-- Outstanding Fee Items Breakdown Cards Grid -->
+                            <div id="continuity-fee-items-container" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2 max-h-48 overflow-y-auto p-1">
+                                <!-- Rendered dynamically as compact cards -->
                             </div>
 
-                            <!-- Fee Settlement Collection Form Controls -->
-                            <div id="continuity-collection-fields" class="p-3 bg-white rounded-xl border border-slate-200/80 space-y-3">
-                                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b pb-2">
-                                    <label class="inline-flex items-center gap-2 cursor-pointer text-xs font-bold text-slate-800">
+                            <!-- Fee Settlement Collection Form Controls (Compact) -->
+                            <div id="continuity-collection-fields" class="p-2.5 bg-white rounded-lg border border-slate-200/80 space-y-2.5">
+                                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-1.5">
+                                    <label class="inline-flex items-center gap-2 cursor-pointer text-xs font-bold text-slate-800 select-none">
                                         <input type="checkbox" id="continuity-collect-fee-now" class="w-4 h-4 text-emerald-600 rounded">
                                         <span>Collect Selected Fees Upon Discontinuation</span>
                                     </label>
-                                    <div class="text-xs font-bold text-emerald-800 bg-emerald-50 px-3 py-1 rounded-full border border-emerald-200">
-                                        Selected to Collect: <span id="continuity-selected-fee-total" class="font-mono text-sm font-extrabold text-emerald-700">₹0</span>
+                                    <div class="text-xs font-bold text-emerald-800 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200">
+                                        Selected: <span id="continuity-selected-fee-total" class="font-mono text-xs sm:text-sm font-extrabold text-emerald-700">₹0</span>
                                     </div>
                                 </div>
 
-                                <div id="continuity-payment-inputs-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                                <div id="continuity-payment-inputs-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
                                     <div>
-                                        <label for="continuity-fee-receipt-no" class="block text-[11px] font-bold text-slate-600 mb-1">Receipt Number</label>
-                                        <input type="text" id="continuity-fee-receipt-no" class="w-full p-2 text-xs border rounded-lg bg-slate-50 font-mono" placeholder="e.g. 101">
+                                        <label for="continuity-fee-receipt-no" class="block text-[10px] font-bold text-slate-600 mb-0.5">Receipt Number</label>
+                                        <input type="text" id="continuity-fee-receipt-no" class="w-full p-1.5 text-xs border rounded-lg bg-slate-50 font-mono" placeholder="Receipt No">
                                     </div>
                                     <div>
-                                        <label for="continuity-fee-payment-date" class="block text-[11px] font-bold text-slate-600 mb-1">Payment Date</label>
-                                        <input type="date" id="continuity-fee-payment-date" class="w-full p-2 text-xs border rounded-lg bg-slate-50 font-mono">
+                                        <label for="continuity-fee-payment-date" class="block text-[10px] font-bold text-slate-600 mb-0.5">Payment Date</label>
+                                        <input type="date" id="continuity-fee-payment-date" class="w-full p-1.5 text-xs border rounded-lg bg-slate-50 font-mono">
                                     </div>
                                     <div>
-                                        <label for="continuity-fee-payment-mode" class="block text-[11px] font-bold text-slate-600 mb-1">Payment Mode</label>
-                                        <select id="continuity-fee-payment-mode" class="w-full p-2 text-xs border rounded-lg bg-slate-50 font-semibold text-slate-700">
+                                        <label for="continuity-fee-payment-mode" class="block text-[10px] font-bold text-slate-600 mb-0.5">Payment Mode</label>
+                                        <select id="continuity-fee-payment-mode" class="w-full p-1.5 text-xs border rounded-lg bg-slate-50 font-semibold text-slate-700">
                                             <option value="Cash">Cash</option>
                                             <option value="Online">GPay / UPI / Online</option>
                                             <option value="Bank">Bank Transfer</option>
@@ -797,15 +796,15 @@
                                         </select>
                                     </div>
                                     <div>
-                                        <label for="continuity-fee-description" class="block text-[11px] font-bold text-slate-600 mb-1">Payment Description / Notes</label>
-                                        <input type="text" id="continuity-fee-description" class="w-full p-2 text-xs border rounded-lg bg-slate-50" placeholder="e.g. Cleared on discontinuation">
+                                        <label for="continuity-fee-description" class="block text-[10px] font-bold text-slate-600 mb-0.5">Payment Notes</label>
+                                        <input type="text" id="continuity-fee-description" class="w-full p-1.5 text-xs border rounded-lg bg-slate-50" placeholder="e.g. Cleared on exit">
                                     </div>
                                 </div>
                             </div>
                         </div>
 
-                        <div class="flex justify-end pt-2">
-                            <button type="submit" id="execute-discontinue-btn" class="px-5 py-2.5 bg-rose-600 hover:bg-rose-700 text-white rounded-lg font-bold text-sm shadow-sm transition flex items-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed">
+                        <div class="flex justify-end pt-1">
+                            <button type="submit" id="execute-discontinue-btn" class="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-lg font-bold text-xs sm:text-sm shadow-xs transition flex items-center gap-1.5 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed">
                                 <i class="fas fa-user-minus"></i>
                                 <span>Discontinue Student</span>
                             </button>
@@ -814,13 +813,13 @@
                 </div>
 
                 <!-- Panel B: Discontinued Students Archive -->
-                <div class="card p-6 rounded-2xl border-slate-200 bg-white shadow-sm space-y-5">
-                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-3">
+                <div class="card p-4 sm:p-5 rounded-xl border border-slate-200 bg-white shadow-xs space-y-4">
+                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-2.5">
                         <div>
-                            <h3 class="text-base font-bold text-slate-900">Discontinued Students Directory</h3>
+                            <h3 class="text-sm sm:text-base font-bold text-slate-900">Discontinued Students Directory</h3>
                             <p class="text-xs text-slate-500 mt-0.5">Archive of past student departures with recorded reasons, preserved dues, and multi-year re-admission.</p>
                         </div>
-                        <div class="flex items-center gap-4 text-xs font-mono tabular-nums">
+                        <div class="flex items-center gap-3 text-xs font-mono tabular-nums">
                             <div>
                                 <span class="text-slate-400">Total Departed:</span>
                                 <span id="continuity-metric-total" class="font-extrabold text-slate-800 ml-1">0</span>
@@ -834,13 +833,13 @@
                     </div>
 
                     <!-- Search and Filters -->
-                    <div class="flex flex-col sm:flex-row gap-3">
+                    <div class="flex flex-col sm:flex-row gap-2.5">
                         <div class="relative flex-1">
-                            <i class="fas fa-search absolute left-3 top-3 text-slate-400 text-xs"></i>
-                            <input type="text" id="continuity-search-input" placeholder="Search by name, admission no, or reason..." class="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-800 focus:outline-none focus:border-slate-400 focus:bg-white transition">
+                            <i class="fas fa-search absolute left-3 top-2.5 text-slate-400 text-xs"></i>
+                            <input type="text" id="continuity-search-input" placeholder="Search by name, admission no, or reason..." class="w-full pl-8 pr-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-800 focus:outline-none focus:border-slate-400 focus:bg-white transition">
                         </div>
-                        <div class="w-full sm:w-56 shrink-0">
-                            <select id="continuity-class-filter" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-800 focus:outline-none focus:border-slate-400 focus:bg-white transition">
+                        <div class="w-full sm:w-52 shrink-0">
+                            <select id="continuity-class-filter" class="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-800 focus:outline-none focus:border-slate-400 focus:bg-white transition">
                                 <option value="all">All Departure Classes</option>
                             </select>
                         </div>
@@ -851,9 +850,9 @@
                         <table class="w-full text-left text-sm border-collapse">
                             <thead class="bg-slate-50 text-slate-600 text-xs uppercase font-bold border-b border-slate-200">
                                 <tr>
-                                    <th class="py-3 px-4">Student</th>
-                                    <th class="py-3 px-4">Class at Exit</th>
-                                    <th class="py-3 px-4">Exit Date &amp; Reason</th>
+                                    <th class="py-2.5 px-3 sm:px-4">Student</th>
+                                    <th class="py-2.5 px-3 sm:px-4">Class at Exit</th>
+                                    <th class="py-2.5 px-3 sm:px-4">Exit Date</th>
                                     <th class="py-3 px-4">Inactive Gap</th>
                                     <th class="py-3 px-4 text-right">Preserved Dues</th>
                                     <th class="py-3 px-4 text-right">Actions</th>
@@ -2234,6 +2233,95 @@
                 <button type="button" id="admin-crop-cancel-btn" class="px-4 py-2 border rounded text-xs font-bold text-gray-600">Cancel</button>
                 <button type="button" id="admin-crop-save-btn" class="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded text-xs font-bold shadow-md">Apply Crop</button>
             </div>
+        </div>
+    </div>
+
+    <!-- Quick Fee Settlement Modal for Discontinued Students -->
+    <div id="continuity-quick-settle-popup" class="fixed inset-0 bg-black/60 hidden items-center justify-center z-[9999] p-4 overflow-y-auto">
+        <div class="bg-white rounded-2xl shadow-2xl max-w-xl w-full overflow-hidden p-5 sm:p-6 space-y-4 my-8">
+            <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+                <div class="flex items-center gap-2">
+                    <span class="w-2.5 h-2.5 rounded-full bg-blue-600"></span>
+                    <h3 class="text-base font-bold text-slate-900">Collect Outstanding Fees</h3>
+                </div>
+                <button type="button" id="quick-settle-close-btn" class="text-slate-400 hover:text-slate-600 text-lg font-bold p-1">&times;</button>
+            </div>
+
+            <!-- Student Summary -->
+            <div class="p-3 rounded-xl border border-slate-200 bg-slate-50/90 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div class="flex items-center gap-3">
+                    <img id="quick-settle-student-photo" src="assets/images/placeholder.svg" alt="Photo" class="w-11 h-11 rounded-full object-cover border border-slate-200 bg-white shrink-0">
+                    <div class="min-w-0">
+                        <div id="quick-settle-student-name" class="font-extrabold text-sm text-slate-900 truncate">Student Name</div>
+                        <div class="text-xs text-slate-600 font-mono mt-0.5 space-x-1.5">
+                            <span>Adm: <b id="quick-settle-student-adm" class="text-slate-800">--</b></span>
+                            <span>·</span>
+                            <span>Exit Class: <b id="quick-settle-student-class" class="text-slate-800">--</b></span>
+                        </div>
+                    </div>
+                </div>
+                <div class="text-left sm:text-right shrink-0">
+                    <div class="text-[10px] font-bold uppercase tracking-wider text-slate-500">Remaining Preserved Dues</div>
+                    <div id="quick-settle-student-dues" class="text-base font-extrabold text-rose-700 font-mono tabular-nums">₹0</div>
+                </div>
+            </div>
+
+            <!-- Fee Items Selector Section -->
+            <div class="space-y-2">
+                <div class="flex items-center justify-between">
+                    <div class="text-xs font-bold text-slate-700 uppercase tracking-wide">Select Fee Items to Collect</div>
+                    <div class="flex items-center gap-2">
+                        <button type="button" id="quick-settle-select-all" class="px-2 py-0.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded transition">Select All</button>
+                        <button type="button" id="quick-settle-deselect-all" class="px-2 py-0.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded transition">Deselect All</button>
+                    </div>
+                </div>
+                <div id="quick-settle-items-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 max-h-48 overflow-y-auto p-1 bg-slate-50/50 rounded-xl border border-slate-200">
+                    <!-- Dynamic compact fee cards -->
+                </div>
+            </div>
+
+            <!-- Payment Details Form -->
+            <form id="quick-settle-form" class="space-y-3 pt-2 border-t border-slate-100">
+                <input type="hidden" id="quick-settle-student-id">
+                
+                <div class="flex items-center justify-between bg-emerald-50 border border-emerald-200 rounded-xl px-3.5 py-2">
+                    <span class="text-xs font-bold text-emerald-900">Total Selected to Collect:</span>
+                    <span id="quick-settle-selected-total" class="text-base font-extrabold font-mono text-emerald-700 tabular-nums">₹0</span>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5">
+                    <div>
+                        <label for="quick-settle-receipt-no" class="block text-[11px] font-bold text-slate-600 mb-1">Receipt Number</label>
+                        <input type="text" id="quick-settle-receipt-no" class="w-full p-2 text-xs border rounded-lg bg-white font-mono" placeholder="Receipt No">
+                    </div>
+                    <div>
+                        <label for="quick-settle-payment-date" class="block text-[11px] font-bold text-slate-600 mb-1">Payment Date</label>
+                        <input type="date" id="quick-settle-payment-date" class="w-full p-2 text-xs border rounded-lg bg-white font-mono" required>
+                    </div>
+                    <div>
+                        <label for="quick-settle-payment-mode" class="block text-[11px] font-bold text-slate-600 mb-1">Payment Mode</label>
+                        <select id="quick-settle-payment-mode" class="w-full p-2 text-xs border rounded-lg bg-white font-semibold text-slate-700">
+                            <option value="Cash">Cash</option>
+                            <option value="Online">GPay / UPI / Online</option>
+                            <option value="Bank">Bank Transfer</option>
+                            <option value="Card">Card</option>
+                            <option value="Other">Other</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label for="quick-settle-notes" class="block text-[11px] font-bold text-slate-600 mb-1">Notes / Description</label>
+                        <input type="text" id="quick-settle-notes" class="w-full p-2 text-xs border rounded-lg bg-white text-xs" placeholder="e.g. Cleared after exit">
+                    </div>
+                </div>
+
+                <div class="flex justify-end gap-2.5 pt-2 border-t border-slate-100">
+                    <button type="button" id="quick-settle-cancel-btn" class="px-4 py-2 border border-slate-200 rounded-lg text-xs font-bold text-slate-600 hover:bg-slate-50 transition">Cancel</button>
+                    <button type="submit" id="quick-settle-submit-btn" class="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold shadow-sm transition flex items-center gap-1.5 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed">
+                        <i class="fas fa-check-circle"></i>
+                        <span>Collect &amp; Save Payment</span>
+                    </button>
+                </div>
+            </form>
         </div>
     </div>
 

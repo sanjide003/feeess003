@@ -3806,36 +3806,40 @@ document.getElementById('student-list-container').addEventListener('click', e =>
         });
     }
     if(editBtn) {
-        if(!requirePermission('students.manage')) return;
-        const st = students.find(s=>s.id === editBtn.dataset.id);
-        if(st) {
-            editingStudentId = st.id;
-            const prof = st.profile || {};
-            const setVal = (id, val) => { const el = document.getElementById(id); if (el) el.value = val !== undefined && val !== null ? val : ''; };
-            setVal('e-stu-class', st.class || st.studentClass || prof.class || '');
-            setVal('e-stu-gender', st.gender || prof.gender || 'Male');
-            setVal('e-stu-name', st.name || prof.name || '');
-            setVal('e-stu-adm', st.adm || prof.admNo || prof.adm || '');
-            setVal('e-stu-mob', st.mobile || prof.mobile || '');
-            setVal('e-stu-fat', st.father || prof.father || '');
-            setVal('e-stu-mother', st.mother || prof.mother || '');
-            setVal('e-stu-mother-mobile', st.motherMobile || prof.motherMobile || '');
-            setVal('e-stu-uid', st.uid || prof.uid || '');
-            setVal('e-stu-addr', st.address || prof.address || '');
-            setVal('e-stu-status', normalizeStudentStatus(st.status || prof.status));
-            setVal('e-stu-dob', normalizeToIsoDate(prof.dob || st.dob || ''));
-            setVal('e-stu-adm-date', normalizeToIsoDate(prof.admDate || prof.adm_date || st.admDate || st.adm_date || ''));
-            setVal('e-stu-adhaar', prof.adhaar || st.adhaar || '');
-            setVal('e-stu-samastha', prof.samasthaId || st.samasthaId || '');
-            updateAdminPhotoWidgetPreview(st.photo || st.profile?.photo || '', 'e-stu-photo-preview', 'e-stu-photo-placeholder', 'e-stu-remove-btn', 'e-stu-photo');
-            const popup = document.getElementById('edit-student-popup');
-            if (popup) {
-                popup.classList.remove('hidden');
-                popup.classList.add('flex');
-            }
-        }
+        openEditStudentModal(editBtn.dataset.id);
     }
 });
+
+const openEditStudentModal = (studentId) => {
+    if(!requirePermission('students.manage')) return;
+    const st = (rawStudents || []).find(s => s.id === studentId) || (students || []).find(s => s.id === studentId);
+    if(st) {
+        editingStudentId = st.id;
+        const prof = st.profile || {};
+        const setVal = (id, val) => { const el = document.getElementById(id); if (el) el.value = val !== undefined && val !== null ? val : ''; };
+        setVal('e-stu-class', st.class || st.studentClass || prof.class || '');
+        setVal('e-stu-gender', st.gender || prof.gender || 'Male');
+        setVal('e-stu-name', st.name || prof.name || '');
+        setVal('e-stu-adm', st.adm || prof.admNo || prof.adm || '');
+        setVal('e-stu-mob', st.mobile || prof.mobile || '');
+        setVal('e-stu-fat', st.father || prof.father || '');
+        setVal('e-stu-mother', st.mother || prof.mother || '');
+        setVal('e-stu-mother-mobile', st.motherMobile || prof.motherMobile || '');
+        setVal('e-stu-uid', st.uid || prof.uid || '');
+        setVal('e-stu-addr', st.address || prof.address || '');
+        setVal('e-stu-status', normalizeStudentStatus(st.status || prof.status));
+        setVal('e-stu-dob', normalizeToIsoDate(prof.dob || st.dob || ''));
+        setVal('e-stu-adm-date', normalizeToIsoDate(prof.admDate || prof.adm_date || st.admDate || st.adm_date || ''));
+        setVal('e-stu-adhaar', prof.adhaar || st.adhaar || '');
+        setVal('e-stu-samastha', prof.samasthaId || st.samasthaId || '');
+        updateAdminPhotoWidgetPreview(st.photo || st.profile?.photo || '', 'e-stu-photo-preview', 'e-stu-photo-placeholder', 'e-stu-remove-btn', 'e-stu-photo');
+        const popup = document.getElementById('edit-student-popup');
+        if (popup) {
+            popup.classList.remove('hidden');
+            popup.classList.add('flex');
+        }
+    }
+};
 document.getElementById('edit-student-update')?.addEventListener('click', async () => {
     if(!requirePermission('students.manage')) return;
     const getVal = (id) => (document.getElementById(id)?.value || '').trim();
@@ -3905,6 +3909,7 @@ document.getElementById('edit-student-update')?.addEventListener('click', async 
         await logAuditEvent({ category: 'student', action: 'student.update', entityType: 'student', entityId: editingStudentId, message: 'Student record updated.' });
         document.getElementById('edit-student-popup').classList.add('hidden');
         renderStudentList();
+        if (!document.getElementById('student-continuity-page')?.classList.contains('hidden')) renderContinuityPage();
         alert('Student information updated successfully!');
     } catch (err) {
         console.error('Failed to update student:', err);
@@ -4355,6 +4360,20 @@ const updateContinuitySelectedFeeTotal = () => {
     const total = checkedBoxes.reduce((sum, cb) => sum + Number(cb.dataset.amount || 0), 0);
     const totalEl = document.getElementById('continuity-selected-fee-total');
     if (totalEl) totalEl.textContent = `₹${total.toLocaleString('en-IN')}`;
+
+    const container = document.getElementById('continuity-fee-items-container');
+    if (container) {
+        container.querySelectorAll('.continuity-fee-card').forEach(card => {
+            const cb = card.querySelector('.continuity-fee-checkbox');
+            if (cb && cb.checked) {
+                card.classList.remove('border-slate-200', 'bg-white', 'opacity-60');
+                card.classList.add('border-emerald-500', 'bg-emerald-50/80', 'ring-1', 'ring-emerald-400/70');
+            } else if (cb) {
+                card.classList.remove('border-emerald-500', 'bg-emerald-50/80', 'ring-1', 'ring-emerald-400/70');
+                card.classList.add('border-slate-200', 'bg-white', 'opacity-60');
+            }
+        });
+    }
     return total;
 };
 
@@ -4375,7 +4394,7 @@ const renderContinuityPendingFees = (student, exitDateStr) => {
 
     if (pendingItems.length === 0) {
         container.innerHTML = `
-            <div class="p-3 bg-emerald-50 text-emerald-800 rounded-xl text-xs font-semibold border border-emerald-200 flex items-center gap-2">
+            <div class="col-span-full p-3 bg-emerald-50 text-emerald-800 rounded-xl text-xs font-semibold border border-emerald-200 flex items-center justify-center gap-2">
                 <i class="fas fa-check-circle text-emerald-600 text-sm"></i>
                 <span>All fees are fully cleared. No outstanding dues found for this student.</span>
             </div>
@@ -4394,19 +4413,20 @@ const renderContinuityPendingFees = (student, exitDateStr) => {
     }
 
     container.innerHTML = pendingItems.map((item, idx) => `
-        <div class="flex items-center justify-between p-2.5 bg-white border border-slate-200 rounded-xl hover:border-indigo-300 transition gap-2">
-            <label class="flex items-center gap-2.5 cursor-pointer min-w-0 flex-1">
-                <input type="checkbox" id="cont-fee-${idx}" class="continuity-fee-checkbox w-4 h-4 text-emerald-600 rounded border-slate-300 focus:ring-emerald-500 cursor-pointer"
-                       data-key="${escapeHtml(item.key)}" data-type="${escapeHtml(item.type)}" data-amount="${item.amount}" data-name="${escapeHtml(item.name)}" data-year="${escapeHtml(item.academicYear)}" checked>
-                <div class="min-w-0">
-                    <div class="text-xs font-bold text-slate-800 truncate">${escapeHtml(item.name)}</div>
-                    <div class="text-[10px] text-slate-500 font-mono">${item.type === 'month' ? 'Monthly Fee' : 'Other Fee'} · ${escapeHtml(item.academicYear)}</div>
+        <label for="cont-fee-${idx}" class="continuity-fee-card flex flex-col justify-between p-2 rounded-lg border border-emerald-500 bg-emerald-50/80 ring-1 ring-emerald-400/70 shadow-xs cursor-pointer transition select-none hover:shadow-sm" data-idx="${idx}">
+            <div class="flex items-start justify-between gap-1">
+                <div class="min-w-0 flex-1">
+                    <div class="text-xs font-bold text-slate-900 truncate" title="${escapeHtml(item.name)}">${escapeHtml(item.name)}</div>
+                    <div class="text-[10px] text-slate-500 truncate">${item.type === 'month' ? 'Monthly' : 'Item'} · ${escapeHtml(item.academicYear)}</div>
                 </div>
-            </label>
-            <div class="text-xs font-bold font-mono tabular-nums text-slate-900 bg-slate-50 px-2.5 py-1 rounded-lg border border-slate-200 shrink-0">
-                ₹${Number(item.amount).toLocaleString('en-IN')}
+                <input type="checkbox" id="cont-fee-${idx}" class="continuity-fee-checkbox w-3.5 h-3.5 text-emerald-600 rounded border-slate-300 focus:ring-emerald-500 shrink-0 mt-0.5"
+                       data-key="${escapeHtml(item.key)}" data-type="${escapeHtml(item.type)}" data-amount="${item.amount}" data-name="${escapeHtml(item.name)}" data-year="${escapeHtml(item.academicYear)}" checked>
             </div>
-        </div>
+            <div class="mt-1.5 pt-1 border-t border-slate-200/60 flex items-center justify-between">
+                <span class="text-[9px] font-semibold text-slate-500 uppercase tracking-wider">Fee</span>
+                <span class="text-xs font-extrabold font-mono tabular-nums text-emerald-800">₹${Number(item.amount).toLocaleString('en-IN')}</span>
+            </div>
+        </label>
     `).join('');
 
     container.querySelectorAll('.continuity-fee-checkbox').forEach(cb => {
@@ -4743,9 +4763,8 @@ const renderContinuityPage = () => {
                     <div class="font-bold text-slate-800">${escapeHtml(exitClass)}</div>
                     <div class="text-slate-500">${escapeHtml(exitYear)}</div>
                 </td>
-                <td class="py-3 px-4">
-                    <div class="text-xs font-mono tabular-nums text-slate-800">${escapeHtml(exitDate)}</div>
-                    <div class="text-xs text-slate-500 truncate max-w-xs" title="${escapeHtml(reason)}">${escapeHtml(reason)}</div>
+                <td class="py-3 px-4 font-mono text-xs tabular-nums text-slate-800" title="${escapeHtml(reason)}">
+                    ${escapeHtml(exitDate)}
                 </td>
                 <td class="py-3 px-4 font-mono text-xs tabular-nums text-slate-600">
                     <span class="inline-block py-0.5 px-2 rounded bg-slate-100 text-slate-700 border border-slate-200/80">${escapeHtml(gapText)}</span>
@@ -4755,11 +4774,19 @@ const renderContinuityPage = () => {
                 </td>
                 <td class="py-3 px-4 text-right">
                     <div class="flex items-center justify-end gap-1.5">
-                        <button type="button" class="btn-open-readmit px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold shadow-xs transition flex items-center gap-1 cursor-pointer" data-id="${s.id}" title="Re-admit Student">
+                        <button type="button" class="btn-quick-settle-fee px-2.5 py-1.5 ${preservedDues > 0 ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-xs cursor-pointer' : 'bg-slate-100 text-slate-400 cursor-default'} rounded-lg text-xs font-bold transition flex items-center gap-1" data-id="${s.id}" title="${preservedDues > 0 ? 'Collect Preserved Fees' : 'All Fees Cleared'}">
+                            <i class="fas fa-receipt text-[10px]"></i>
+                            <span>Collect Fee</span>
+                        </button>
+                        <button type="button" class="btn-open-readmit px-2.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold shadow-xs transition flex items-center gap-1 cursor-pointer" data-id="${s.id}" title="Re-admit Student">
                             <i class="fas fa-user-plus text-[10px]"></i>
                             <span>Re-admit</span>
                         </button>
-                        <button type="button" class="btn-view-continuity px-2.5 py-1.5 border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 rounded-lg text-xs font-bold transition flex items-center gap-1 cursor-pointer" data-id="${s.id}" title="View Lifecycle History">
+                        <button type="button" class="btn-edit-discontinued px-2 py-1.5 border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 rounded-lg text-xs font-bold transition flex items-center gap-1 cursor-pointer" data-id="${s.id}" title="Edit Student Profile">
+                            <i class="fas fa-pen-to-square text-[11px] text-slate-600"></i>
+                            <span>Edit</span>
+                        </button>
+                        <button type="button" class="btn-view-continuity px-2 py-1.5 border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 rounded-lg text-xs font-bold transition flex items-center gap-1 cursor-pointer" data-id="${s.id}" title="View Lifecycle History">
                             <i class="fas fa-clock-rotate-left text-[11px] text-slate-500"></i>
                         </button>
                     </div>
@@ -4770,6 +4797,18 @@ const renderContinuityPage = () => {
 
     // Reliable event delegation on tbody
     tbody.onclick = (e) => {
+        const quickSettleBtn = e.target.closest('.btn-quick-settle-fee');
+        if (quickSettleBtn) {
+            e.stopPropagation();
+            openQuickSettleModal(quickSettleBtn.dataset.id);
+            return;
+        }
+        const editBtn = e.target.closest('.btn-edit-discontinued');
+        if (editBtn) {
+            e.stopPropagation();
+            openEditStudentModal(editBtn.dataset.id);
+            return;
+        }
         const readmitBtn = e.target.closest('.btn-open-readmit');
         if (readmitBtn) {
             e.stopPropagation();
@@ -5150,6 +5189,287 @@ document.getElementById('continuity-history-done-btn')?.addEventListener('click'
     document.getElementById('continuity-history-popup')?.classList.add('hidden');
     document.getElementById('continuity-history-popup')?.classList.remove('flex');
 });
+
+// Quick Fee Settlement for Discontinued Students
+const updateQuickSettleSelectedTotal = () => {
+    const checkedBoxes = Array.from(document.querySelectorAll('.quick-settle-fee-checkbox:checked'));
+    const total = checkedBoxes.reduce((sum, cb) => sum + Number(cb.dataset.amount || 0), 0);
+    const totalEl = document.getElementById('quick-settle-selected-total');
+    if (totalEl) totalEl.textContent = `₹${total.toLocaleString('en-IN')}`;
+
+    const submitBtn = document.getElementById('quick-settle-submit-btn');
+    if (submitBtn) {
+        submitBtn.disabled = (total <= 0);
+    }
+
+    const container = document.getElementById('quick-settle-items-grid');
+    if (container) {
+        container.querySelectorAll('.quick-settle-fee-card').forEach(card => {
+            const cb = card.querySelector('.quick-settle-fee-checkbox');
+            if (cb && cb.checked) {
+                card.classList.remove('border-slate-200', 'bg-white', 'opacity-60');
+                card.classList.add('border-emerald-500', 'bg-emerald-50/80', 'ring-1', 'ring-emerald-400');
+            } else if (cb) {
+                card.classList.remove('border-emerald-500', 'bg-emerald-50/80', 'ring-1', 'ring-emerald-400');
+                card.classList.add('border-slate-200', 'bg-white', 'opacity-60');
+            }
+        });
+    }
+    return total;
+};
+
+const openQuickSettleModal = (studentId) => {
+    try {
+        const modal = document.getElementById('continuity-quick-settle-popup');
+        if (!modal) {
+            console.error('Modal continuity-quick-settle-popup not found');
+            return;
+        }
+
+        const student = (rawStudents || []).find(s => s.id === studentId);
+        if (!student) {
+            alert('Student record not found.');
+            return;
+        }
+
+        const idInput = document.getElementById('quick-settle-student-id');
+        if (idInput) idInput.value = student.id;
+
+        const photoEl = document.getElementById('quick-settle-student-photo');
+        if (photoEl) photoEl.src = resolveSafePhotoUrl(student.photoUrl || student.photo);
+
+        const nameEl = document.getElementById('quick-settle-student-name');
+        if (nameEl) nameEl.textContent = student.name || 'Unknown';
+
+        const admEl = document.getElementById('quick-settle-student-adm');
+        if (admEl) admEl.textContent = student.adm || '--';
+
+        const classEl = document.getElementById('quick-settle-student-class');
+        if (classEl) classEl.textContent = student.discontinuationDetails?.lastClass || student.class || '--';
+
+        const preservedDues = calculateStudentPreservedDues(student);
+        const duesEl = document.getElementById('quick-settle-student-dues');
+        if (duesEl) duesEl.textContent = `₹${preservedDues.toLocaleString('en-IN')}`;
+
+        const receiptInput = document.getElementById('quick-settle-receipt-no');
+        if (receiptInput) receiptInput.value = getNextReceiptNo();
+
+        const paymentDateInput = document.getElementById('quick-settle-payment-date');
+        if (paymentDateInput) paymentDateInput.value = new Date().toISOString().split('T')[0];
+
+        const notesInput = document.getElementById('quick-settle-notes');
+        if (notesInput) notesInput.value = 'Preserved dues settlement';
+
+        const exitDateStr = student.discontinuationDetails?.date || null;
+        const pendingItems = getStudentDetailedPendingFees(student, exitDateStr);
+        const container = document.getElementById('quick-settle-items-grid');
+
+        if (!container) return;
+
+        if (pendingItems.length === 0) {
+            container.innerHTML = `
+                <div class="col-span-full p-4 bg-emerald-50 text-emerald-800 rounded-xl text-xs font-semibold border border-emerald-200 flex items-center justify-center gap-2">
+                    <i class="fas fa-check-circle text-emerald-600"></i>
+                    <span>All fee items have been completely settled. No outstanding items found.</span>
+                </div>
+            `;
+            updateQuickSettleSelectedTotal();
+        } else {
+            container.innerHTML = pendingItems.map((item, idx) => `
+                <label for="qs-fee-${idx}" class="quick-settle-fee-card flex flex-col justify-between p-2 rounded-lg border border-emerald-500 bg-emerald-50/80 ring-1 ring-emerald-400 shadow-xs cursor-pointer transition select-none hover:shadow-sm" data-idx="${idx}">
+                    <div class="flex items-start justify-between gap-1.5">
+                        <div class="min-w-0 flex-1">
+                            <div class="text-xs font-bold text-slate-900 truncate" title="${escapeHtml(item.name)}">${escapeHtml(item.name)}</div>
+                            <div class="text-[10px] text-slate-500 truncate">${item.type === 'month' ? 'Monthly' : 'Item'} · ${escapeHtml(item.academicYear)}</div>
+                        </div>
+                        <input type="checkbox" id="qs-fee-${idx}" class="quick-settle-fee-checkbox w-3.5 h-3.5 text-emerald-600 rounded border-slate-300 focus:ring-emerald-500 shrink-0 mt-0.5"
+                               data-key="${escapeHtml(item.key)}" data-type="${escapeHtml(item.type)}" data-amount="${item.amount}" data-name="${escapeHtml(item.name)}" data-year="${escapeHtml(item.academicYear)}" checked>
+                    </div>
+                    <div class="mt-1.5 pt-1 border-t border-slate-200/60 flex items-center justify-between">
+                        <span class="text-[9px] font-semibold text-slate-500 uppercase tracking-wider">Fee</span>
+                        <span class="text-xs font-extrabold font-mono tabular-nums text-emerald-800">₹${Number(item.amount).toLocaleString('en-IN')}</span>
+                    </div>
+                </label>
+            `).join('');
+
+            container.querySelectorAll('.quick-settle-fee-checkbox').forEach(cb => {
+                cb.addEventListener('change', updateQuickSettleSelectedTotal);
+            });
+            updateQuickSettleSelectedTotal();
+        }
+
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+    } catch (err) {
+        console.error('Failed to open quick fee settlement modal:', err);
+        alert('Could not open fee collection window.');
+    }
+};
+
+const closeQuickSettleModal = () => {
+    const modal = document.getElementById('continuity-quick-settle-popup');
+    if (modal) {
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+    }
+};
+
+const handleQuickSettleSubmit = async (e) => {
+    e.preventDefault();
+    if (!requirePermission('fees.manage')) return;
+
+    const studentId = document.getElementById('quick-settle-student-id')?.value;
+    const student = (rawStudents || []).find(s => s.id === studentId);
+    if (!student) {
+        alert('Student record not found.');
+        return;
+    }
+
+    const checkedBoxes = Array.from(document.querySelectorAll('.quick-settle-fee-checkbox:checked'));
+    if (checkedBoxes.length === 0) {
+        alert('Please select at least one fee item to collect.');
+        return;
+    }
+
+    const itemsToCollect = checkedBoxes.map(cb => ({
+        key: cb.dataset.key,
+        name: cb.dataset.name,
+        type: cb.dataset.type,
+        amount: Number(cb.dataset.amount || 0),
+        academicYear: cb.dataset.year || getActiveAcademicYearLabel()
+    }));
+
+    const totalCollected = itemsToCollect.reduce((sum, it) => sum + it.amount, 0);
+    const rcptVal = (document.getElementById('quick-settle-receipt-no')?.value || '').trim();
+    const receiptNo = rcptVal ? parseInt(rcptVal, 10) : null;
+    const paymentDate = document.getElementById('quick-settle-payment-date')?.value || new Date().toISOString().split('T')[0];
+    const paymentMode = document.getElementById('quick-settle-payment-mode')?.value || 'Cash';
+    const paymentDesc = (document.getElementById('quick-settle-notes')?.value || '').trim() || 'Preserved dues settlement';
+    const submitBtn = document.getElementById('quick-settle-submit-btn');
+
+    const confirmMsg = `Confirm collecting fee payment:\n\n` +
+        `• Student: ${student.name} (Adm: ${student.adm || '--'})\n` +
+        `• Total Amount: ₹${totalCollected.toLocaleString('en-IN')}\n` +
+        `• Receipt No: ${receiptNo || 'Auto'}\n` +
+        `• Payment Mode: ${paymentMode}\n` +
+        `• Date: ${formatDateDisplay(paymentDate)}\n\n` +
+        `Proceed with payment entry?`;
+
+    if (!confirm(confirmMsg)) return;
+
+    try {
+        if (submitBtn) {
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> <span>Processing...</span>';
+        }
+
+        const batch = writeBatch(db);
+        const txnId = `TXN_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+        const collectorKey = currentAdminEmail || 'admin';
+        const collectorName = currentAdminEmail || 'Administrator';
+        const activeYear = getActiveAcademicYearLabel();
+        const lastClass = student.discontinuationDetails?.lastClass || student.class || '';
+
+        const createdPayments = [];
+
+        itemsToCollect.forEach(item => {
+            const paymentPayload = {
+                receiptNo: receiptNo,
+                transactionId: txnId,
+                paymentDate: paymentDate,
+                paymentMode: paymentMode,
+                timestamp: Date.now(),
+                description: paymentDesc,
+                collectedBy: collectorKey,
+                collectedByName: collectorName,
+                academicYear: item.academicYear || activeYear,
+                classLabel: lastClass,
+                studentId: student.id,
+                admissionNo: student.adm || '',
+                studentName: student.name || '',
+                itemKey: item.key,
+                amount: item.amount,
+                billingGroupId: null
+            };
+
+            const paymentRef = doc(collection(db, `${BASE_PATH}/payments`));
+            batch.set(paymentRef, paymentPayload);
+            const yearPath = `${BASE_PATH}/academicYears/${toAcademicYearDocId(item.academicYear || activeYear)}/payments`;
+            batch.set(doc(db, yearPath, paymentRef.id), paymentPayload);
+            createdPayments.push({ id: paymentRef.id, ...paymentPayload });
+        });
+
+        const currentPreservedDues = calculateStudentPreservedDues(student);
+        const newPreservedDues = Math.max(0, currentPreservedDues - totalCollected);
+
+        const currentContinuityLog = Array.isArray(student.continuityLog)
+            ? [...student.continuityLog]
+            : [];
+
+        currentContinuityLog.unshift({
+            id: 'event_' + Date.now(),
+            type: 'fee_collection',
+            timestamp: new Date().toISOString(),
+            date: paymentDate,
+            academicYear: activeYear,
+            class: lastClass,
+            reason: paymentDesc,
+            adminEmail: currentAdminEmail || 'Admin',
+            feesCollected: totalCollected,
+            receiptNo: receiptNo,
+            priorBalance: newPreservedDues
+        });
+
+        const studentRef = doc(db, `${BASE_PATH}/students`, student.id);
+        const updatePayload = {
+            'discontinuationDetails.preservedDues': newPreservedDues,
+            continuityLog: currentContinuityLog,
+            updatedAt: new Date().toISOString()
+        };
+        batch.update(studentRef, updatePayload);
+
+        await batch.commit();
+
+        // Update local memory
+        allPayments.push(...createdPayments);
+        if (student.discontinuationDetails) {
+            student.discontinuationDetails.preservedDues = newPreservedDues;
+        }
+        student.continuityLog = currentContinuityLog;
+
+        await logAuditEvent({
+            category: 'fee',
+            action: 'payment.create',
+            entityType: 'payment',
+            entityId: txnId,
+            message: `Collected ₹${totalCollected} for discontinued student ${student.name} (Adm: ${student.adm || '-'}). Receipt: ${receiptNo || '-'}.`
+        });
+
+        closeQuickSettleModal();
+        renderContinuityPage();
+        alert(`Payment of ₹${totalCollected.toLocaleString('en-IN')} recorded successfully!`);
+    } catch (err) {
+        console.error('Failed to process quick fee settlement:', err);
+        alert('Failed to save fee collection. Please check your connection and try again.');
+    } finally {
+        if (submitBtn) {
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = '<i class="fas fa-check-circle"></i> <span>Collect &amp; Save Payment</span>';
+        }
+    }
+};
+
+document.getElementById('quick-settle-close-btn')?.addEventListener('click', closeQuickSettleModal);
+document.getElementById('quick-settle-cancel-btn')?.addEventListener('click', closeQuickSettleModal);
+document.getElementById('quick-settle-select-all')?.addEventListener('click', () => {
+    document.querySelectorAll('.quick-settle-fee-checkbox').forEach(cb => cb.checked = true);
+    updateQuickSettleSelectedTotal();
+});
+document.getElementById('quick-settle-deselect-all')?.addEventListener('click', () => {
+    document.querySelectorAll('.quick-settle-fee-checkbox').forEach(cb => cb.checked = false);
+    updateQuickSettleSelectedTotal();
+});
+document.getElementById('quick-settle-form')?.addEventListener('submit', handleQuickSettleSubmit);
 
 // --- 4. MANAGE CLASSES ---
 const renderClassList = () => {
