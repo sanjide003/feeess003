@@ -449,7 +449,10 @@ const getClassesForYear = (targetYearLabel) => {
     const yearRecord = academicYears.find((year) => year.label === target);
     const structuredClasses = Array.isArray(yearRecord?.classes) ? yearRecord.classes : [];
     const studentClasses = getStudentsForYear(target).map((student) => student.class).filter(Boolean);
-    return sortClassLabels([...new Set([...structuredClasses, ...studentClasses])]);
+    const combined = sortClassLabels([...new Set([...structuredClasses, ...studentClasses])]);
+    if (combined.length > 0) return combined;
+    const fallbackActive = Array.isArray(classes) && classes.length ? classes : (typeof getDefaultClassLadder === 'function' ? getDefaultClassLadder() : []);
+    return sortClassLabels([...new Set(fallbackActive)]);
 };
 
 const getClassesForActiveYear = () => getClassesForYear(getActiveAcademicYearLabel());
@@ -1002,7 +1005,6 @@ const refreshAcademicYearScopedData = (forceActive = false) => {
 
     if(!document.getElementById('manage-classes-page').classList.contains('hidden')) renderClassList();
     if(!document.getElementById('manage-students-page').classList.contains('hidden')) renderStudentList();
-    if(!document.getElementById('promote-students-page')?.classList.contains('hidden')) renderPromotionTool();
     if(!document.getElementById('student-continuity-page')?.classList.contains('hidden')) renderContinuityPage();
     if(!document.getElementById('manage-groups-page').classList.contains('hidden')) renderStudentGroups();
     if(!document.getElementById('fee-concessions-page').classList.contains('hidden')) renderConcessionsList();
@@ -4237,10 +4239,12 @@ const clearContinuityStudentSelection = () => {
 
 const updateContinuityStudentPreview = (studentId) => {
     const previewWrap = document.getElementById('continuity-student-preview');
+    const feeWrap = document.getElementById('continuity-fee-settlement-wrap');
     if (!previewWrap) return;
 
     if (!studentId) {
         previewWrap.classList.add('hidden');
+        if (feeWrap) feeWrap.classList.add('hidden');
         continuitySelectedStudent = null;
         return;
     }
@@ -4248,14 +4252,17 @@ const updateContinuityStudentPreview = (studentId) => {
     const student = (rawStudents || []).find(s => s.id === studentId);
     if (!student) {
         previewWrap.classList.add('hidden');
+        if (feeWrap) feeWrap.classList.add('hidden');
         continuitySelectedStudent = null;
         return;
     }
 
     continuitySelectedStudent = student;
     const exitDateInput = document.getElementById('continuity-exit-date');
+    if (exitDateInput && !exitDateInput.value) {
+        exitDateInput.value = new Date().toISOString().split('T')[0];
+    }
     const exitDate = exitDateInput?.value || new Date().toISOString().split('T')[0];
-    const dues = calculateStudentPreservedDues(student, exitDate);
 
     const photoEl = document.getElementById('continuity-preview-photo');
     if (photoEl) photoEl.src = resolveSafePhotoUrl(student.photoUrl || student.photo);
@@ -4265,9 +4272,178 @@ const updateContinuityStudentPreview = (studentId) => {
     document.getElementById('continuity-preview-gender').textContent = student.gender || '--';
     document.getElementById('continuity-preview-guardian').textContent = student.guardian || student.father || '--';
     document.getElementById('continuity-preview-phone').textContent = student.phone || student.mobile || '--';
-    document.getElementById('continuity-preview-dues').textContent = `₹${dues.toLocaleString('en-IN')}`;
 
     previewWrap.classList.remove('hidden');
+
+    renderContinuityPendingFees(student, exitDate);
+};
+
+const getNextReceiptNo = () => {
+    const receipts = (allPayments || [])
+        .map(p => Number(p.receiptNo))
+        .filter(n => Number.isFinite(n) && n > 0);
+    return receipts.length ? Math.max(...receipts) + 1 : 1;
+};
+
+const getStudentDetailedPendingFees = (student, exitDateStr = null) => {
+    if (!student) return [];
+    const activeYear = getActiveAcademicYearLabel();
+    const activeYearRecord = getActiveAcademicYearRecord();
+    const studentPayments = (allPayments || []).filter(p => p.studentId === student.id || p.admissionNo === student.adm);
+    const paidItemKeys = new Set(studentPayments.map(p => `${p.itemKey}__${p.academicYear || activeYear}`));
+
+    const effectiveMonthlyFee = (student.concessionFee !== undefined && student.concessionFee !== null && student.concessionFee !== '')
+        ? Number(student.concessionFee)
+        : (feeItems.find(f => f.type === 'monthly')?.amount || 200);
+
+    const pendingItems = [];
+
+    // 1. Monthly fee items
+    const scopedMonthlyItems = feeItems.filter(item => (item.type || 'month') === 'month' && (item.academicYear || activeYear) === activeYear);
+    const monthSequence = typeof getAcademicMonthSequence === 'function' ? getAcademicMonthSequence(activeYearRecord) : [4, 5, 6, 7, 8, 9, 10, 11, 0, 1, 2, 3];
+    
+    scopedMonthlyItems.sort((a, b) => {
+        const aName = (a.name || '').split('(')[0].trim();
+        const bName = (b.name || '').split('(')[0].trim();
+        const aIdx = Array.isArray(MONTH_LABELS) ? MONTH_LABELS.indexOf(aName) : -1;
+        const bIdx = Array.isArray(MONTH_LABELS) ? MONTH_LABELS.indexOf(bName) : -1;
+        return monthSequence.indexOf(aIdx) - monthSequence.indexOf(bIdx);
+    });
+
+    scopedMonthlyItems.forEach(item => {
+        const itemKey = `${item.key}__${activeYear}`;
+        const isPaid = paidItemKeys.has(itemKey) || studentPayments.some(p => p.itemKey === item.key && (p.academicYear || activeYear) === activeYear);
+        if (!isPaid) {
+            pendingItems.push({
+                key: item.key,
+                name: item.name || 'Monthly Fee',
+                type: 'month',
+                amount: effectiveMonthlyFee,
+                academicYear: activeYear
+            });
+        }
+    });
+
+    // 2. Custom / Other fee items
+    const scopedCustomItems = feeItems.filter(item => item.type === 'custom' && (item.academicYear || activeYear) === activeYear && item.isVisible !== false);
+    scopedCustomItems.forEach(item => {
+        let amount = 0;
+        if (item.scope === 'global') amount = Number(item.amount || 0);
+        else if (item.scope === 'class-wise' && item.classValues) amount = Number(item.classValues[student.class] || 0);
+        else if (item.scope === 'specific' && item.targetClass === student.class) amount = Number(item.amount || 0);
+
+        if (amount > 0) {
+            const itemKey = `${item.key}__${activeYear}`;
+            const isPaid = paidItemKeys.has(itemKey) || studentPayments.some(p => p.itemKey === item.key && (p.academicYear || activeYear) === activeYear);
+            if (!isPaid) {
+                pendingItems.push({
+                    key: item.key,
+                    name: item.name || 'Other Fee',
+                    type: 'custom',
+                    amount: amount,
+                    academicYear: activeYear
+                });
+            }
+        }
+    });
+
+    return pendingItems;
+};
+
+const updateContinuitySelectedFeeTotal = () => {
+    const checkedBoxes = Array.from(document.querySelectorAll('.continuity-fee-checkbox:checked'));
+    const total = checkedBoxes.reduce((sum, cb) => sum + Number(cb.dataset.amount || 0), 0);
+    const totalEl = document.getElementById('continuity-selected-fee-total');
+    if (totalEl) totalEl.textContent = `₹${total.toLocaleString('en-IN')}`;
+    return total;
+};
+
+const renderContinuityPendingFees = (student, exitDateStr) => {
+    const feeWrap = document.getElementById('continuity-fee-settlement-wrap');
+    const container = document.getElementById('continuity-fee-items-container');
+    const duesEl = document.getElementById('continuity-preview-dues');
+    const collectFeeCheckbox = document.getElementById('continuity-collect-fee-now');
+    const receiptInput = document.getElementById('continuity-fee-receipt-no');
+    const paymentDateInput = document.getElementById('continuity-fee-payment-date');
+
+    if (!feeWrap || !container) return;
+
+    const pendingItems = getStudentDetailedPendingFees(student, exitDateStr);
+    const totalPendingDues = pendingItems.reduce((sum, item) => sum + Number(item.amount || 0), 0);
+
+    if (duesEl) duesEl.textContent = `₹${totalPendingDues.toLocaleString('en-IN')}`;
+
+    if (pendingItems.length === 0) {
+        container.innerHTML = `
+            <div class="p-3 bg-emerald-50 text-emerald-800 rounded-xl text-xs font-semibold border border-emerald-200 flex items-center gap-2">
+                <i class="fas fa-check-circle text-emerald-600 text-sm"></i>
+                <span>All fees are fully cleared. No outstanding dues found for this student.</span>
+            </div>
+        `;
+        if (collectFeeCheckbox) {
+            collectFeeCheckbox.checked = false;
+            collectFeeCheckbox.disabled = true;
+        }
+        updateContinuitySelectedFeeTotal();
+        feeWrap.classList.remove('hidden');
+        return;
+    }
+
+    if (collectFeeCheckbox) {
+        collectFeeCheckbox.disabled = false;
+    }
+
+    container.innerHTML = pendingItems.map((item, idx) => `
+        <div class="flex items-center justify-between p-2.5 bg-white border border-slate-200 rounded-xl hover:border-indigo-300 transition gap-2">
+            <label class="flex items-center gap-2.5 cursor-pointer min-w-0 flex-1">
+                <input type="checkbox" id="cont-fee-${idx}" class="continuity-fee-checkbox w-4 h-4 text-emerald-600 rounded border-slate-300 focus:ring-emerald-500 cursor-pointer"
+                       data-key="${escapeHtml(item.key)}" data-type="${escapeHtml(item.type)}" data-amount="${item.amount}" data-name="${escapeHtml(item.name)}" data-year="${escapeHtml(item.academicYear)}" checked>
+                <div class="min-w-0">
+                    <div class="text-xs font-bold text-slate-800 truncate">${escapeHtml(item.name)}</div>
+                    <div class="text-[10px] text-slate-500 font-mono">${item.type === 'month' ? 'Monthly Fee' : 'Other Fee'} · ${escapeHtml(item.academicYear)}</div>
+                </div>
+            </label>
+            <div class="text-xs font-bold font-mono tabular-nums text-slate-900 bg-slate-50 px-2.5 py-1 rounded-lg border border-slate-200 shrink-0">
+                ₹${Number(item.amount).toLocaleString('en-IN')}
+            </div>
+        </div>
+    `).join('');
+
+    container.querySelectorAll('.continuity-fee-checkbox').forEach(cb => {
+        cb.addEventListener('change', updateContinuitySelectedFeeTotal);
+    });
+
+    const selectAllBtn = document.getElementById('continuity-fee-select-all-btn');
+    if (selectAllBtn) {
+        selectAllBtn.onclick = () => {
+            container.querySelectorAll('.continuity-fee-checkbox').forEach(cb => cb.checked = true);
+            updateContinuitySelectedFeeTotal();
+        };
+    }
+
+    const deselectAllBtn = document.getElementById('continuity-fee-deselect-all-btn');
+    if (deselectAllBtn) {
+        deselectAllBtn.onclick = () => {
+            container.querySelectorAll('.continuity-fee-checkbox').forEach(cb => cb.checked = false);
+            updateContinuitySelectedFeeTotal();
+        };
+    }
+
+    if (collectFeeCheckbox) {
+        collectFeeCheckbox.onchange = () => {
+            if (collectFeeCheckbox.checked) {
+                if (receiptInput && !receiptInput.value) receiptInput.value = getNextReceiptNo();
+                if (paymentDateInput && !paymentDateInput.value) paymentDateInput.value = exitDateStr || new Date().toISOString().split('T')[0];
+            }
+        };
+        if (collectFeeCheckbox.checked) {
+            if (receiptInput && !receiptInput.value) receiptInput.value = getNextReceiptNo();
+            if (paymentDateInput && !paymentDateInput.value) paymentDateInput.value = exitDateStr || new Date().toISOString().split('T')[0];
+        }
+    }
+
+    updateContinuitySelectedFeeTotal();
+    feeWrap.classList.remove('hidden');
 };
 
 const handleDiscontinueStudent = async (e) => {
@@ -4275,13 +4451,13 @@ const handleDiscontinueStudent = async (e) => {
     const hiddenStudentIdInput = document.getElementById('continuity-selected-student-id');
     const exitDateInput = document.getElementById('continuity-exit-date');
     const exitReasonInput = document.getElementById('continuity-exit-reason');
-    const generateTcCheckbox = document.getElementById('continuity-generate-tc');
+    const collectFeeCheckbox = document.getElementById('continuity-collect-fee-now');
     const submitBtn = document.getElementById('execute-discontinue-btn');
 
     const studentId = hiddenStudentIdInput?.value;
     const exitDate = exitDateInput?.value;
     const exitReason = (exitReasonInput?.value || '').trim();
-    const generateTc = !!generateTcCheckbox?.checked;
+    const collectFeesNow = !!collectFeeCheckbox?.checked;
 
     if (!studentId) {
         alert('Please search and select a student to discontinue.');
@@ -4298,7 +4474,42 @@ const handleDiscontinueStudent = async (e) => {
         return;
     }
 
-    const preservedDues = calculateStudentPreservedDues(student, exitDate);
+    const pendingItems = getStudentDetailedPendingFees(student, exitDate);
+    const totalPendingDues = pendingItems.reduce((sum, item) => sum + Number(item.amount || 0), 0);
+
+    let itemsToCollect = [];
+    let collectedAmount = 0;
+    let receiptNo = null;
+    let paymentDate = exitDate;
+    let paymentMode = 'Cash';
+    let paymentDesc = '';
+
+    if (collectFeesNow) {
+        const checkedBoxes = Array.from(document.querySelectorAll('.continuity-fee-checkbox:checked'));
+        itemsToCollect = checkedBoxes.map(cb => ({
+            key: cb.dataset.key,
+            name: cb.dataset.name,
+            type: cb.dataset.type,
+            amount: Number(cb.dataset.amount || 0),
+            academicYear: cb.dataset.year || getActiveAcademicYearLabel()
+        }));
+
+        if (itemsToCollect.length === 0) {
+            alert('Fee collection was enabled, but no fee items were selected. Please tick at least one fee item or uncheck "Collect Selected Fees".');
+            return;
+        }
+
+        collectedAmount = itemsToCollect.reduce((sum, it) => sum + it.amount, 0);
+
+        const receiptInput = document.getElementById('continuity-fee-receipt-no');
+        const rcptVal = (receiptInput?.value || '').trim();
+        receiptNo = rcptVal ? parseInt(rcptVal, 10) : null;
+        paymentDate = document.getElementById('continuity-fee-payment-date')?.value || exitDate;
+        paymentMode = document.getElementById('continuity-fee-payment-mode')?.value || 'Cash';
+        paymentDesc = (document.getElementById('continuity-fee-description')?.value || '').trim() || 'Settled upon student discontinuation';
+    }
+
+    const remainingPreservedDues = Math.max(0, totalPendingDues - collectedAmount);
     const activeYear = getActiveAcademicYearLabel();
     const lastClass = student.class || '';
 
@@ -4307,9 +4518,9 @@ const handleDiscontinueStudent = async (e) => {
         `• Admission No: ${student.adm || '--'}\n` +
         `• Class: ${lastClass}\n` +
         `• Departure Date: ${formatDateDisplay(exitDate)}\n` +
-        `• Preserved Prior Dues: ₹${preservedDues}\n` +
-        `• Transfer Certificate Entry: ${generateTc ? 'Yes (Draft Created)' : 'No'}\n\n` +
-        `This will move the student to the Discontinued Archive. Historical fees and marks will be preserved without gap year charges.`;
+        (collectFeesNow ? `• Fees to Collect Now: ₹${collectedAmount.toLocaleString('en-IN')} (Receipt: ${receiptNo || 'Auto'})\n` : `• Immediate Fee Collection: None (Optional)\n`) +
+        `• Preserved Remaining Dues: ₹${remainingPreservedDues.toLocaleString('en-IN')}\n\n` +
+        `This will move the student to the Discontinued Archive. Historical records and remaining fees will be preserved.`;
 
     if (!confirm(confirmMsg)) return;
 
@@ -4319,6 +4530,51 @@ const handleDiscontinueStudent = async (e) => {
             submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> <span>Processing...</span>';
         }
 
+        // 1. If fees are collected, write payment records using batch
+        if (collectFeesNow && itemsToCollect.length > 0) {
+            const batch = writeBatch(db);
+            const txnId = `TXN_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+            const collectorKey = currentAdminEmail || 'admin';
+            const collectorName = currentAdminEmail || 'Administrator';
+
+            itemsToCollect.forEach(item => {
+                const paymentPayload = {
+                    receiptNo: receiptNo,
+                    transactionId: txnId,
+                    paymentDate: paymentDate,
+                    paymentMode: paymentMode,
+                    timestamp: Date.now(),
+                    description: paymentDesc,
+                    collectedBy: collectorKey,
+                    collectedByName: collectorName,
+                    academicYear: item.academicYear || activeYear,
+                    classLabel: lastClass,
+                    studentId: student.id,
+                    admissionNo: student.adm || '',
+                    studentName: student.name || '',
+                    itemKey: item.key,
+                    amount: item.amount,
+                    billingGroupId: null
+                };
+
+                const paymentRef = doc(collection(db, `${BASE_PATH}/payments`));
+                batch.set(paymentRef, paymentPayload);
+                const yearPath = `${BASE_PATH}/academicYears/${toAcademicYearDocId(item.academicYear || activeYear)}/payments`;
+                batch.set(doc(db, yearPath, paymentRef.id), paymentPayload);
+            });
+
+            await batch.commit();
+
+            await logAuditEvent({
+                category: 'fee',
+                action: 'payment.create',
+                entityType: 'payment',
+                entityId: txnId,
+                message: `Collected ₹${collectedAmount} for ${student.name} (Adm: ${student.adm || '-'}) upon discontinuation. Receipt: ${receiptNo || '-'}.`
+            });
+        }
+
+        // 2. Update Student Document
         const currentAcademicYearsMap = student.academicYears && typeof student.academicYears === 'object'
             ? { ...student.academicYears }
             : {};
@@ -4344,8 +4600,9 @@ const handleDiscontinueStudent = async (e) => {
             class: lastClass,
             reason: exitReason || 'Administrative departure',
             adminEmail: currentAdminEmail || 'Admin',
-            priorBalance: preservedDues,
-            tcGenerated: generateTc
+            feesCollected: collectedAmount,
+            receiptNo: receiptNo,
+            priorBalance: remainingPreservedDues
         });
 
         const discontinuationDetails = {
@@ -4355,8 +4612,8 @@ const handleDiscontinueStudent = async (e) => {
             reason: exitReason || 'Administrative departure',
             recordedBy: currentAdminEmail || 'Admin',
             recordedAt: new Date().toISOString(),
-            preservedDues: preservedDues,
-            tcGenerated: generateTc
+            preservedDues: remainingPreservedDues,
+            feesCollected: collectedAmount
         };
 
         const studentRef = doc(db, `${BASE_PATH}/students`, studentId);
@@ -4375,34 +4632,18 @@ const handleDiscontinueStudent = async (e) => {
             status: 'Discontinued'
         });
 
-        if (generateTc) {
-            const tcRef = doc(collection(db, `${BASE_PATH}/transferCertificates`));
-            await setDoc(tcRef, {
-                studentId: studentId,
-                admissionNo: student.adm || '',
-                studentName: student.name || '',
-                exitClass: lastClass,
-                academicYear: activeYear,
-                issueDate: exitDate,
-                reason: exitReason || 'Discontinued',
-                status: 'Draft',
-                createdAt: new Date().toISOString(),
-                createdBy: currentAdminEmail || 'Admin'
-            });
-        }
-
         await logAuditEvent({
             category: 'student',
             action: 'student.discontinue',
             entityType: 'student',
             entityId: studentId,
-            message: `Student discontinued: ${student.name} (Adm: ${student.adm || '-'}, Class: ${lastClass}). Preserved dues: ₹${preservedDues}.`
+            message: `Student discontinued: ${student.name} (Adm: ${student.adm || '-'}, Class: ${lastClass}). Collected: ₹${collectedAmount}. Preserved dues: ₹${remainingPreservedDues}.`
         });
 
-        showToast(`Student ${student.name} successfully discontinued.`, 'success');
+        showToast(`Student ${student.name} successfully discontinued.${collectedAmount > 0 ? ` Collected ₹${collectedAmount}.` : ''}`, 'success');
 
         exitReasonInput.value = '';
-        generateTcCheckbox.checked = false;
+        if (collectFeeCheckbox) collectFeeCheckbox.checked = false;
         clearContinuityStudentSelection();
 
         renderContinuityPage();
@@ -4527,102 +4768,143 @@ const renderContinuityPage = () => {
         `;
     }).join('');
 
-    tbody.querySelectorAll('.btn-open-readmit').forEach(btn => {
-        btn.addEventListener('click', () => openReadmitModal(btn.dataset.id));
-    });
-    tbody.querySelectorAll('.btn-view-continuity').forEach(btn => {
-        btn.addEventListener('click', () => openContinuityHistoryModal(btn.dataset.id));
-    });
+    // Reliable event delegation on tbody
+    tbody.onclick = (e) => {
+        const readmitBtn = e.target.closest('.btn-open-readmit');
+        if (readmitBtn) {
+            e.stopPropagation();
+            openReadmitModal(readmitBtn.dataset.id);
+            return;
+        }
+        const historyBtn = e.target.closest('.btn-view-continuity');
+        if (historyBtn) {
+            e.stopPropagation();
+            openContinuityHistoryModal(historyBtn.dataset.id);
+            return;
+        }
+    };
 };
 
 const openReadmitModal = (studentId) => {
-    const modal = document.getElementById('readmission-popup');
-    if (!modal) return;
-
-    const student = (rawStudents || []).find(s => s.id === studentId);
-    if (!student) {
-        alert('Student not found.');
-        return;
-    }
-
-    document.getElementById('readmit-student-id').value = student.id;
-    document.getElementById('readmit-student-photo').src = resolveSafePhotoUrl(student.photoUrl || student.photo);
-    document.getElementById('readmit-student-name').textContent = student.name || 'Unknown';
-    document.getElementById('readmit-student-adm').textContent = student.adm || '--';
-
-    const details = student.discontinuationDetails || {};
-    const exitClass = details.lastClass || student.class || '--';
-    const exitDate = details.date || '';
-    const exitYear = details.academicYear || student.academicYear || '';
-    const exitReason = details.reason || '';
-
-    document.getElementById('readmit-student-exit-class').textContent = exitClass;
-    document.getElementById('readmit-student-exit-date').textContent = exitDate ? formatDateDisplay(exitDate) : '--';
-    if (exitReason) {
-        document.getElementById('readmit-student-exit-reason').textContent = exitReason;
-        document.getElementById('readmit-student-exit-reason-wrap').classList.remove('hidden');
-    } else {
-        document.getElementById('readmit-student-exit-reason-wrap').classList.add('hidden');
-    }
-
-    const targetYearSelect = document.getElementById('readmit-target-year');
-    const availableYears = (academicYears || []).map(y => y.label).filter(Boolean);
-    const activeYear = getActiveAcademicYearLabel();
-    if (!availableYears.includes(activeYear)) availableYears.unshift(activeYear);
-
-    targetYearSelect.innerHTML = availableYears.map(yr => {
-        const isCurrent = yr === activeYear ? ' (Active Year)' : '';
-        return `<option value="${escapeHtml(yr)}">${escapeHtml(yr)}${isCurrent}</option>`;
-    }).join('');
-    targetYearSelect.value = activeYear;
-
-    const updateTargetClassAndGap = () => {
-        const selectedTargetYear = targetYearSelect.value;
-        const targetClassSelect = document.getElementById('readmit-target-class');
-        const yearClasses = getClassesForYear(selectedTargetYear);
-
-        targetClassSelect.innerHTML = '<option value="">Select Target Class &amp; Division...</option>' +
-            yearClasses.map(c => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join('');
-
-        const matchDigits = exitClass.match(/\d+/);
-        if (matchDigits) {
-            const nextClassNum = parseInt(matchDigits[0], 10) + 1;
-            const suggestedClass = yearClasses.find(c => c.includes(String(nextClassNum)));
-            if (suggestedClass) targetClassSelect.value = suggestedClass;
+    try {
+        const modal = document.getElementById('readmission-popup');
+        if (!modal) {
+            console.error('Modal readmission-popup not found');
+            return;
         }
 
-        const missedYears = getMissedAcademicYears(exitYear, selectedTargetYear);
-        const returnDateVal = document.getElementById('readmit-return-date').value;
-        const gapDurationText = exitDate ? calculateGapDurationText(exitDate, returnDateVal) : 'Unknown';
+        const student = (rawStudents || []).find(s => s.id === studentId);
+        if (!student) {
+            alert('Student not found.');
+            return;
+        }
 
-        const gapBadgeEl = document.getElementById('readmit-gap-badge');
-        const gapSummaryEl = document.getElementById('readmit-gap-summary');
-        if (gapBadgeEl) gapBadgeEl.textContent = gapDurationText;
+        const idInput = document.getElementById('readmit-student-id');
+        if (idInput) idInput.value = student.id;
 
-        if (gapSummaryEl) {
-            if (missedYears.length > 0) {
-                gapSummaryEl.innerHTML = `<b>${missedYears.length} Missed Academic Year(s):</b> ${missedYears.join(' · ')}<br><span class="text-[11px] text-emerald-700">Student was on academic leave during these years.</span>`;
-            } else {
-                gapSummaryEl.textContent = `Returning within the same or immediate consecutive academic cycle. Inactive Gap: ${gapDurationText}.`;
+        const photoEl = document.getElementById('readmit-student-photo');
+        if (photoEl) photoEl.src = resolveSafePhotoUrl(student.photoUrl || student.photo);
+
+        const nameEl = document.getElementById('readmit-student-name');
+        if (nameEl) nameEl.textContent = student.name || 'Unknown';
+
+        const admEl = document.getElementById('readmit-student-adm');
+        if (admEl) admEl.textContent = student.adm || '--';
+
+        const details = student.discontinuationDetails || {};
+        const exitClass = details.lastClass || student.class || '--';
+        const exitDate = details.date || '';
+        const exitYear = details.academicYear || student.academicYear || '';
+        const exitReason = details.reason || '';
+
+        const exitClassEl = document.getElementById('readmit-student-exit-class');
+        if (exitClassEl) exitClassEl.textContent = exitClass;
+
+        const exitDateEl = document.getElementById('readmit-student-exit-date');
+        if (exitDateEl) exitDateEl.textContent = exitDate ? formatDateDisplay(exitDate) : '--';
+
+        const reasonWrap = document.getElementById('readmit-student-exit-reason-wrap');
+        const reasonEl = document.getElementById('readmit-student-exit-reason');
+        if (exitReason && reasonWrap && reasonEl) {
+            reasonEl.textContent = exitReason;
+            reasonWrap.classList.remove('hidden');
+        } else if (reasonWrap) {
+            reasonWrap.classList.add('hidden');
+        }
+
+        const targetYearSelect = document.getElementById('readmit-target-year');
+        if (!targetYearSelect) return;
+
+        const availableYears = (academicYears || []).map(y => y.label).filter(Boolean);
+        const activeYear = getActiveAcademicYearLabel();
+        if (!availableYears.includes(activeYear)) availableYears.unshift(activeYear);
+
+        targetYearSelect.innerHTML = availableYears.map(yr => {
+            const isCurrent = yr === activeYear ? ' (Active Year)' : '';
+            return `<option value="${escapeHtml(yr)}">${escapeHtml(yr)}${isCurrent}</option>`;
+        }).join('');
+        targetYearSelect.value = activeYear;
+
+        const updateTargetClassAndGap = () => {
+            const selectedTargetYear = targetYearSelect.value;
+            const targetClassSelect = document.getElementById('readmit-target-class');
+            if (!targetClassSelect) return;
+            const yearClasses = getClassesForYear(selectedTargetYear);
+
+            targetClassSelect.innerHTML = '<option value="">Select Target Class &amp; Division...</option>' +
+                yearClasses.map(c => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join('');
+
+            const matchDigits = String(exitClass || '').match(/\d+/);
+            if (matchDigits) {
+                const nextClassNum = parseInt(matchDigits[0], 10) + 1;
+                const suggestedClass = yearClasses.find(c => c.includes(String(nextClassNum)));
+                if (suggestedClass) targetClassSelect.value = suggestedClass;
             }
+            if (!targetClassSelect.value && yearClasses.length > 0) {
+                targetClassSelect.value = yearClasses[0];
+            }
+
+            const missedYears = getMissedAcademicYears(exitYear, selectedTargetYear);
+            const returnDateInput = document.getElementById('readmit-return-date');
+            const returnDateVal = returnDateInput?.value || new Date().toISOString().split('T')[0];
+            const gapDurationText = exitDate ? calculateGapDurationText(exitDate, returnDateVal) : 'Unknown';
+
+            const gapBadgeEl = document.getElementById('readmit-gap-badge');
+            const gapSummaryEl = document.getElementById('readmit-gap-summary');
+            if (gapBadgeEl) gapBadgeEl.textContent = gapDurationText;
+
+            if (gapSummaryEl) {
+                if (missedYears.length > 0) {
+                    gapSummaryEl.innerHTML = `<b>${missedYears.length} Missed Academic Year(s):</b> ${missedYears.join(' · ')}<br><span class="text-[11px] text-emerald-700">Student was on academic leave during these years.</span>`;
+                } else {
+                    gapSummaryEl.textContent = `Returning within the same or immediate consecutive academic cycle. Inactive Gap: ${gapDurationText}.`;
+                }
+            }
+
+            const preservedDues = calculateStudentPreservedDues(student, exitDate);
+            const duesEl = document.getElementById('readmit-preserved-dues');
+            if (duesEl) duesEl.textContent = `₹${preservedDues.toLocaleString('en-IN')}`;
+        };
+
+        targetYearSelect.onchange = updateTargetClassAndGap;
+
+        const returnDateInput = document.getElementById('readmit-return-date');
+        if (returnDateInput) {
+            returnDateInput.value = new Date().toISOString().split('T')[0];
+            returnDateInput.onchange = updateTargetClassAndGap;
         }
 
-        const preservedDues = calculateStudentPreservedDues(student, exitDate);
-        document.getElementById('readmit-preserved-dues').textContent = `₹${preservedDues.toLocaleString('en-IN')}`;
-    };
+        const notesInput = document.getElementById('readmit-notes');
+        if (notesInput) notesInput.value = '';
 
-    targetYearSelect.onchange = updateTargetClassAndGap;
+        updateTargetClassAndGap();
 
-    const returnDateInput = document.getElementById('readmit-return-date');
-    returnDateInput.value = new Date().toISOString().split('T')[0];
-    returnDateInput.onchange = updateTargetClassAndGap;
-
-    document.getElementById('readmit-notes').value = '';
-
-    updateTargetClassAndGap();
-
-    modal.classList.remove('hidden');
-    modal.classList.add('flex');
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+    } catch (err) {
+        console.error('Error opening readmit modal:', err);
+        alert('Could not open Re-admit modal: ' + err.message);
+    }
 };
 
 const handleExecuteReadmission = async (e) => {
