@@ -3518,7 +3518,14 @@ const populateClassDropdowns = () => {
     }
 
     const filterConc = document.getElementById('filter-conc-class'); const prevConcVal = filterConc.value;
-    filterConc.innerHTML = `<option value="">-- Select Class --</option>` + opts; if(classes.includes(prevConcVal)) filterConc.value = prevConcVal;
+    filterConc.innerHTML = `<option value="">-- All Classes / Select --</option>` + opts; if(classes.includes(prevConcVal)) filterConc.value = prevConcVal;
+
+    const activeConcClassFilter = document.getElementById('active-conc-class-filter');
+    if (activeConcClassFilter) {
+        const prevActVal = activeConcClassFilter.value;
+        activeConcClassFilter.innerHTML = `<option value="all">All Classes</option>` + opts;
+        if (prevActVal === 'all' || classes.includes(prevActVal)) activeConcClassFilter.value = prevActVal;
+    }
     const bulkClassSel = document.getElementById('bulk-upload-class');
     if (bulkClassSel) {
         const prevBulkClass = bulkClassSel.value;
@@ -7320,25 +7327,168 @@ document.getElementById('run-auto-promotion-btn').addEventListener('click', asyn
 
 }
 // --- 6. FEE CONCESSIONS ---
-const renderConcessionsList = () => {
-    const fCls = document.getElementById('filter-conc-class').value, sTerm = document.getElementById('search-conc-input').value.toLowerCase();
-    const cont = document.getElementById('conc-list-container'), emptyState = document.getElementById('conc-list-empty'), actCont = document.getElementById('active-concessions-list');
+const renderActiveConcessionsList = () => {
+    const actCont = document.getElementById('active-concessions-list');
+    const badgeCount = document.getElementById('active-conc-count-badge');
+    const statusText = document.getElementById('active-conc-filter-status');
+    if (!actCont) return;
 
-    const withConc = students.filter(s => s.concessionFee !== undefined && s.concessionFee !== null);
-    actCont.innerHTML = withConc.length ? withConc.map(s => `<div class="bg-white p-3 rounded-lg shadow-sm border border-green-200 flex justify-between items-center gap-2"><div class="truncate"><div class="font-bold text-sm truncate text-gray-800">${escapeHtml(s.name || '-')}</div><div class="text-xs text-gray-500">${escapeHtml(s.class || '--')}</div></div><div class="flex items-center gap-1 shrink-0"><span class="bg-green-100 text-green-800 font-bold px-2 py-1 rounded text-sm border border-green-300">₹${escapeHtml(String(s.concessionFee))}</span><button class="bg-blue-50 text-blue-700 font-bold px-2 py-1 rounded text-xs hover:bg-blue-100 concession-open-btn" data-id="${s.id}">Edit</button><button class="bg-red-50 text-red-700 font-bold px-2 py-1 rounded text-xs hover:bg-red-100 concession-delete-btn" data-id="${s.id}">Delete</button></div></div>`).join('') : '<p class="text-sm text-gray-500 col-span-full italic">No active concessions.</p>';
+    const sTerm = (document.getElementById('active-conc-search')?.value || '').trim().toLowerCase();
+    const fCls = document.getElementById('active-conc-class-filter')?.value || 'all';
 
-    if(!fCls && !sTerm) { emptyState.classList.remove('hidden'); cont.classList.add('hidden'); return; }
-    emptyState.classList.add('hidden'); cont.classList.remove('hidden');
+    const withConc = students.filter(s => s.concessionFee !== undefined && s.concessionFee !== null && s.concessionFee !== '');
 
-    const fil = students.filter(s => { let match = true; if(fCls) match = match && s.class === fCls; if(sTerm) match = match && (s.name.toLowerCase().includes(sTerm) || (s.adm && s.adm.toLowerCase().includes(sTerm))); return match; });
+    if (badgeCount) {
+        badgeCount.textContent = String(withConc.length);
+    }
 
-    if(fil.length === 0) { cont.innerHTML = '<p class="text-gray-500 p-2">No students found.</p>'; return; }
-    cont.innerHTML = fil.map(s => `<div class="flex justify-between items-center p-3 bg-white border border-gray-100 rounded-lg shadow-sm gap-2"><div class="font-medium text-gray-800">${escapeHtml(s.name || '-')} <span class="text-xs text-gray-500 ml-2">${escapeHtml(s.class || '--')} (Adm: ${escapeHtml(s.adm||'-')})</span></div><div class="flex gap-2 shrink-0"><button class="bg-blue-50 text-blue-700 font-bold px-3 py-1.5 rounded-lg text-sm transition hover:shadow-md concession-open-btn" data-id="${s.id}">${s.concessionFee!==undefined?'Edit':'Set Concession'}</button>${s.concessionFee!==undefined?`<button class="bg-red-50 text-red-700 font-bold px-3 py-1.5 rounded-lg text-sm transition hover:shadow-md concession-delete-btn" data-id="${s.id}">Delete</button>`:''}</div></div>`).join('');
+    const filtered = withConc.filter(s => {
+        let match = true;
+        if (fCls && fCls !== 'all') {
+            match = match && s.class === fCls;
+        }
+        if (sTerm) {
+            const nameMatch = (s.name || '').toLowerCase().includes(sTerm);
+            const admMatch = (s.adm || '').toLowerCase().includes(sTerm);
+            const phoneMatch = (s.phone || '').toLowerCase().includes(sTerm) || (s.parentPhone || '').toLowerCase().includes(sTerm);
+            const fatherMatch = (s.fatherName || '').toLowerCase().includes(sTerm);
+            match = match && (nameMatch || admMatch || phoneMatch || fatherMatch);
+        }
+        return match;
+    });
+
+    if (statusText) {
+        if (fCls !== 'all' || sTerm) {
+            statusText.textContent = `Showing ${filtered.length} of ${withConc.length}`;
+        } else {
+            statusText.textContent = `Showing All (${withConc.length})`;
+        }
+    }
+
+    if (filtered.length === 0) {
+        actCont.innerHTML = `
+            <div class="col-span-full text-center py-8 px-4 bg-white/80 rounded-xl border border-dashed border-emerald-200 text-slate-400 text-xs">
+                <i class="fas fa-search text-emerald-300 text-lg mb-1.5 block"></i>
+                ${withConc.length === 0 ? 'No active fee concessions registered yet.' : 'No concessions match the current search or class filter.'}
+            </div>
+        `;
+        return;
+    }
+
+    actCont.innerHTML = filtered.map(s => {
+        const studentName = escapeHtml(s.name || '-');
+        const studentClass = escapeHtml(s.class || '--');
+        const admNo = escapeHtml(s.adm || '-');
+        const concessionAmt = escapeHtml(String(s.concessionFee));
+        const father = s.fatherName ? escapeHtml(s.fatherName) : '';
+
+        return `
+            <div class="bg-white p-3.5 rounded-xl shadow-2xs border border-emerald-200 hover:border-emerald-300 hover:shadow-xs transition-all flex flex-col justify-between gap-3 group">
+                <div class="space-y-2">
+                    <!-- Top: Student Name and Class/Adm Badges -->
+                    <div class="flex items-start justify-between gap-2">
+                        <div class="min-w-0 flex-1">
+                            <h4 class="font-bold text-sm text-slate-800 leading-snug break-words group-hover:text-emerald-950 transition-colors" title="${studentName}">
+                                ${studentName}
+                            </h4>
+                            <div class="flex flex-wrap items-center gap-1.5 mt-1.5">
+                                <span class="inline-flex items-center px-2 py-0.5 rounded-md bg-blue-50 text-blue-700 text-[11px] font-bold border border-blue-200/80">
+                                    Class ${studentClass}
+                                </span>
+                                <span class="inline-flex items-center px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 text-[11px] font-semibold border border-slate-200/70">
+                                    Adm: ${admNo}
+                                </span>
+                                ${father ? `<span class="text-[11px] text-slate-500 truncate max-w-[140px]" title="Guardian: ${father}"><i class="fas fa-user-shield text-[9px] text-slate-400 mr-0.5"></i>${father}</span>` : ''}
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Middle: Concession Monthly Fee Box -->
+                    <div class="bg-emerald-50/60 border border-emerald-200/80 rounded-lg p-2 flex items-center justify-between">
+                        <div class="flex items-center gap-1.5 text-xs text-emerald-900 font-semibold">
+                            <i class="fas fa-hand-holding-usd text-emerald-600"></i>
+                            <span>Special Monthly Fee</span>
+                        </div>
+                        <span class="inline-flex items-center font-black text-sm text-emerald-800 bg-white px-2 py-0.5 rounded-md border border-emerald-200 shadow-2xs">
+                            ₹${concessionAmt}
+                        </span>
+                    </div>
+                </div>
+
+                <!-- Bottom: Action Buttons -->
+                <div class="pt-2 border-t border-slate-100 flex items-center justify-end gap-1.5">
+                    <button type="button" class="bg-blue-50 hover:bg-blue-100 text-blue-700 font-bold px-2.5 py-1 rounded-md text-xs transition inline-flex items-center gap-1 concession-open-btn" data-id="${s.id}">
+                        <i class="fas fa-edit text-[10px]"></i> Edit
+                    </button>
+                    <button type="button" class="bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold px-2.5 py-1 rounded-md text-xs transition inline-flex items-center gap-1 concession-delete-btn" data-id="${s.id}">
+                        <i class="fas fa-trash-alt text-[10px]"></i> Remove
+                    </button>
+                </div>
+            </div>
+        `;
+    }).join('');
 };
-document.getElementById('filter-conc-class').addEventListener('change', renderConcessionsList);
-document.getElementById('search-conc-input').addEventListener('input', renderConcessionsList);
 
-document.getElementById('fee-concessions-page').addEventListener('click', (e) => {
+const renderConcessionsList = () => {
+    const fCls = document.getElementById('filter-conc-class')?.value || '';
+    const sTerm = (document.getElementById('search-conc-input')?.value || '').trim().toLowerCase();
+    const cont = document.getElementById('conc-list-container');
+    const emptyState = document.getElementById('conc-list-empty');
+
+    renderActiveConcessionsList();
+
+    if (!cont || !emptyState) return;
+
+    if (!fCls && !sTerm) {
+        emptyState.classList.remove('hidden');
+        cont.classList.add('hidden');
+        return;
+    }
+    emptyState.classList.add('hidden');
+    cont.classList.remove('hidden');
+
+    const fil = students.filter(s => {
+        let match = true;
+        if (fCls) match = match && s.class === fCls;
+        if (sTerm) match = match && ((s.name || '').toLowerCase().includes(sTerm) || (s.adm && String(s.adm).toLowerCase().includes(sTerm)));
+        return match;
+    });
+
+    if (fil.length === 0) {
+        cont.innerHTML = '<p class="text-xs text-slate-500 py-4 text-center">No matching students found.</p>';
+        return;
+    }
+
+    cont.innerHTML = fil.map(s => {
+        const hasConc = s.concessionFee !== undefined && s.concessionFee !== null && s.concessionFee !== '';
+        return `
+            <div class="p-2.5 bg-white border border-slate-200 rounded-lg shadow-2xs hover:border-blue-200 transition flex items-center justify-between gap-2">
+                <div class="min-w-0 flex-1">
+                    <div class="font-bold text-xs text-slate-800 break-words leading-tight">${escapeHtml(s.name || '-')}</div>
+                    <div class="flex items-center gap-1.5 text-[11px] text-slate-500 mt-1">
+                        <span class="font-medium text-slate-700 bg-slate-100 px-1.5 py-0.5 rounded">Class ${escapeHtml(s.class || '--')}</span>
+                        <span>•</span>
+                        <span>Adm: ${escapeHtml(s.adm || '-')}</span>
+                    </div>
+                </div>
+                <div class="flex items-center gap-1.5 shrink-0">
+                    ${hasConc ? `<span class="bg-emerald-50 text-emerald-800 text-[11px] font-bold px-2 py-0.5 rounded border border-emerald-200">₹${escapeHtml(String(s.concessionFee))}</span>` : ''}
+                    <button type="button" class="bg-blue-50 hover:bg-blue-100 text-blue-700 font-bold px-2.5 py-1 rounded-md text-xs transition concession-open-btn" data-id="${s.id}">
+                        ${hasConc ? 'Edit' : 'Assign'}
+                    </button>
+                    ${hasConc ? `<button type="button" class="bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold px-2 py-1 rounded-md text-xs transition concession-delete-btn" data-id="${s.id}"><i class="fas fa-trash-alt text-[10px]"></i></button>` : ''}
+                </div>
+            </div>
+        `;
+    }).join('');
+};
+
+document.getElementById('filter-conc-class')?.addEventListener('change', renderConcessionsList);
+document.getElementById('search-conc-input')?.addEventListener('input', renderConcessionsList);
+document.getElementById('active-conc-search')?.addEventListener('input', renderActiveConcessionsList);
+document.getElementById('active-conc-class-filter')?.addEventListener('change', renderActiveConcessionsList);
+
+document.getElementById('fee-concessions-page')?.addEventListener('click', (e) => {
     const btn = e.target.closest('.concession-open-btn');
     const delBtn = e.target.closest('.concession-delete-btn');
     if (btn) window.openConcModal(btn.dataset.id);
@@ -7348,11 +7498,14 @@ document.getElementById('fee-concessions-page').addEventListener('click', (e) =>
 window.openConcModal = (id) => {
     const s = students.find(st=>st.id===id); if(!s) return;
     document.getElementById('conc-student-id').value = s.id;
-    document.getElementById('conc-student-name').textContent = `${s.name} (${s.class})`;
-    document.getElementById('conc-fee-amount').value = s.concessionFee !== undefined ? s.concessionFee : '';
-    document.getElementById('conc-remove').classList.toggle('hidden', s.concessionFee === undefined);
-    document.getElementById('concession-popup').classList.remove('hidden'); document.getElementById('concession-popup').classList.add('flex');
+    document.getElementById('conc-student-name').textContent = `${s.name} (Class: ${s.class || '--'}, Adm: ${s.adm || '--'})`;
+    document.getElementById('conc-fee-amount').value = (s.concessionFee !== undefined && s.concessionFee !== null) ? s.concessionFee : '';
+    const hasConc = s.concessionFee !== undefined && s.concessionFee !== null && s.concessionFee !== '';
+    document.getElementById('conc-remove').classList.toggle('hidden', !hasConc);
+    document.getElementById('concession-popup').classList.remove('hidden'); 
+    document.getElementById('concession-popup').classList.add('flex');
 };
+
 document.getElementById('conc-cancel').onclick = () => document.getElementById('concession-popup').classList.add('hidden');
 document.getElementById('conc-save').onclick = async () => {
     if(!requirePermission('concessions.manage')) return;
@@ -7360,18 +7513,33 @@ document.getElementById('conc-save').onclick = async () => {
     if(isNaN(amt) || amt < 0) return alert("Enter valid amount");
     if(!confirm("Save this fee concession to database?")) return;
     const studentId = document.getElementById('conc-student-id').value;
+    const s = students.find(st => st.id === studentId);
+    if (s) {
+        s.concessionFee = amt;
+        s.concessionAppliedAt = Date.now();
+        s.concessionUpdatedAt = Date.now();
+    }
+    renderConcessionsList();
+    document.getElementById('concession-popup').classList.add('hidden');
     await updateDoc(doc(db, `${BASE_PATH}/students`, studentId), { concessionFee: amt, concessionAppliedAt: Date.now(), concessionUpdatedAt: Date.now() });
     await logAuditEvent({ category: 'fee', action: 'concession.save', entityType: 'student', entityId: studentId, message: `Concession saved: ₹${amt}.` });
-    document.getElementById('concession-popup').classList.add('hidden');
 };
+
 document.getElementById('conc-remove').onclick = async () => {
     const studentId = document.getElementById('conc-student-id').value;
     await window.deleteConcession(studentId);
     document.getElementById('concession-popup').classList.add('hidden');
 };
+
 window.deleteConcession = async (studentId) => {
     if(!requirePermission('concessions.manage')) return;
     if(!confirm("Remove fee concession for this student?")) return;
+    const s = students.find(st => st.id === studentId);
+    if (s) {
+        s.concessionFee = null;
+        s.concessionUpdatedAt = Date.now();
+    }
+    renderConcessionsList();
     await updateDoc(doc(db, `${BASE_PATH}/students`, studentId), { concessionFee: null, concessionUpdatedAt: Date.now() });
     await logAuditEvent({ category: 'fee', action: 'concession.remove', entityType: 'student', entityId: studentId, message: 'Concession removed.' });
 };
