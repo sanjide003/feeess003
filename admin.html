@@ -1460,113 +1460,199 @@
 
             <!-- 10B. Dynamic Public Categories -->
             <!-- 11. Security Settings -->
-            <section id="security-settings-page" class="page hidden space-y-6">
-                <div class="card p-5 rounded-xl shadow-sm bg-red-50/30 border-red-100">
-                    <div class="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4 mb-5 border-b border-red-200 pb-3">
-                        <div>
-                            <h2 class="text-xl font-bold text-red-800"><i class="fas fa-user-shield mr-2"></i>Admin Security & Roles</h2>
-                            <p class="text-sm text-gray-600 mt-2">Super Admin only access: manage primary admin credentials, session control, backups, and the office audit trail.</p>
+            <section id="security-settings-page" class="page hidden space-y-5">
+                <!-- Header Banner -->
+                <div class="card p-4 rounded-xl shadow-xs bg-red-50/40 border border-red-200/80 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-lg bg-red-600 text-white flex items-center justify-center text-lg shrink-0 shadow-xs">
+                            <i class="fas fa-user-shield"></i>
                         </div>
-                        <div class="bg-white border border-red-200 rounded-xl px-4 py-3 min-w-[240px]">
-                            <div class="text-xs font-bold uppercase tracking-widest text-red-500">Signed in as</div>
-                            <div id="security-current-admin-email" class="text-sm font-extrabold text-red-900 mt-1 break-all">--</div>
-                            <div id="security-current-admin-role" class="text-xs text-red-700 font-semibold mt-1">Role: --</div>
+                        <div>
+                            <h2 class="text-base sm:text-lg font-bold text-red-900 leading-tight">Admin Security &amp; Access Control</h2>
+                            <p class="text-xs text-slate-500 mt-0.5">Super Admin privileges: manage master credentials, active sessions, system backups, and the audit trail.</p>
                         </div>
                     </div>
-
-                    <div class="grid grid-cols-1 xl:grid-cols-2 gap-6">
-                        <div class="bg-white border border-gray-200 rounded-2xl p-5 shadow-sm space-y-4">
-                            <div class="flex items-center justify-between border-b pb-2">
-                                <h3 class="text-lg font-bold text-gray-900">Admin Accounts</h3>
-                                <span id="admin-role-summary" class="text-xs font-semibold uppercase tracking-widest text-gray-400">0 active admins</span>
-                            </div>
-                            <div class="bg-blue-50 border border-blue-200 rounded-lg px-3 py-2 text-xs font-semibold text-blue-800">
-                                Only one primary Super Admin is allowed for Admin panel access. Other staff should use Collection panel.
-                            </div>
-                            <div class="flex flex-wrap gap-3 pt-2 border-t">
-                                <button id="save-admin-auth-btn" class="bg-white border border-red-200 text-red-700 font-bold py-2.5 px-5 rounded-lg shadow-sm transition hover:bg-red-50"><i class="fas fa-envelope mr-2"></i>Sync Legacy Email</button>
-                            </div>
-                            <div id="admin-role-list" class="space-y-3"></div>
-                            <div class="border-t pt-4">
-                                <h4 class="text-sm font-bold text-gray-900 mb-2"><i class="fas fa-key mr-2 text-red-600"></i>Update Current Admin Login</h4>
-                                <p class="text-xs text-gray-500 mb-3">Update this account's Email / Password here. Enter current password before saving.</p>
-                                <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-                                    <div><label class="block text-xs font-semibold mb-1">Current Password <span class="mandatory-star">*</span></label><input type="password" id="admin-cred-current-password" class="w-full p-2.5 border rounded-lg" placeholder="Current password"></div>
-                                    <div><label class="block text-xs font-semibold mb-1">New Email (optional)</label><input type="email" id="admin-cred-new-email" class="w-full p-2.5 border rounded-lg" placeholder="new-admin@institute.com"></div>
-                                    <div class="md:col-span-2"><label class="block text-xs font-semibold mb-1">New Password (optional)</label><input type="password" id="admin-cred-new-password" class="w-full p-2.5 border rounded-lg" placeholder="At least 6 characters"></div>
-                                </div>
-                                <div class="pt-3">
-                                    <button id="update-admin-credentials-btn" class="bg-red-700 hover:bg-red-800 text-white font-bold py-2.5 px-5 rounded-lg shadow-md transition"><i class="fas fa-shield-alt mr-2"></i>Update Login Credentials</button>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="bg-white border border-amber-200 rounded-2xl p-5 shadow-sm space-y-4">
-                            <div class="flex items-center justify-between border-b border-amber-100 pb-2">
-                                <h3 class="text-lg font-bold text-amber-900"><i class="fas fa-shield-alt mr-2"></i>Session Monitor</h3>
-                                <span class="text-xs font-semibold uppercase tracking-widest text-amber-600">Live watchdog</span>
-                            </div>
-                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm max-h-[190px] overflow-y-auto pr-1 border border-amber-100 rounded-xl p-3 bg-amber-50/20">
-                                <div class="bg-white border border-amber-100 rounded-xl p-3"><div class="text-xs font-bold uppercase tracking-widest text-gray-500">Session started</div><div id="session-monitor-started" class="font-bold text-gray-900 mt-1">--</div></div>
-                                <div class="bg-white border border-amber-100 rounded-xl p-3"><div class="text-xs font-bold uppercase tracking-widest text-gray-500">Last activity</div><div id="session-monitor-active" class="font-bold text-gray-900 mt-1">--</div></div>
-                                <div class="bg-white border border-amber-100 rounded-xl p-3"><div class="text-xs font-bold uppercase tracking-widest text-gray-500">Absolute expiry</div><div id="session-monitor-absolute" class="font-bold text-gray-900 mt-1">--</div></div>
-                                <div class="bg-white border border-amber-100 rounded-xl p-3"><div class="text-xs font-bold uppercase tracking-widest text-gray-500">Idle expiry</div><div id="session-monitor-idle" class="font-bold text-gray-900 mt-1">--</div></div>
-                            </div>
-                            <div class="bg-amber-50 border border-amber-200 rounded-xl p-4 text-sm text-amber-900">
-                                <div class="font-bold">Last global session event</div>
-                                <div id="session-control-last-event" class="mt-1">No forced logout recorded yet.</div>
-                            </div>
-                            <div class="border border-slate-200 rounded-xl p-3 bg-slate-50/40">
-                                <div class="text-sm font-bold text-gray-900 mb-2">Active Admin Devices</div>
-                                <div id="session-device-list" class="space-y-2 max-h-[220px] overflow-y-auto pr-1"></div>
-                            </div>
-                            <div class="border border-cyan-200 rounded-xl p-3 bg-cyan-50/40">
-                                <div class="text-sm font-bold text-cyan-900 mb-2">Active Collection Sessions</div>
-                                <div id="collection-session-list" class="space-y-2 max-h-[220px] overflow-y-auto pr-1"></div>
-                            </div>
-                            <div class="border border-indigo-200 rounded-xl p-3 bg-indigo-50/40">
-                                <div class="text-sm font-bold text-indigo-900 mb-2">Active Student Sessions</div>
-                                <div id="student-session-list" class="space-y-2 max-h-[220px] overflow-y-auto pr-1"></div>
-                            </div>
-                            <div class="flex flex-wrap gap-3 pt-2 border-t">
-                                <button id="refresh-session-monitor-btn" class="bg-white border border-gray-300 text-gray-700 font-bold py-2.5 px-5 rounded-lg shadow-sm hover:bg-gray-50"><i class="fas fa-rotate mr-2"></i>Refresh Status</button>
-                                <button id="force-logout-btn" class="bg-amber-500 hover:bg-amber-600 text-white font-bold py-2.5 px-5 rounded-lg shadow-md"><i class="fas fa-power-off mr-2"></i>Force Re-login</button>
-                                <button id="logout-current-admin-btn" class="bg-red-600 hover:bg-red-700 text-white font-bold py-2.5 px-5 rounded-lg shadow-md"><i class="fas fa-sign-out-alt mr-2"></i>Logout This Session</button>
-                            </div>
+                    <div class="bg-white border border-red-200/90 rounded-lg px-3.5 py-2 shrink-0 shadow-2xs self-start lg:self-auto">
+                        <div class="text-[10px] font-bold uppercase tracking-wider text-red-500">Signed In Super Admin</div>
+                        <div id="security-current-admin-email" class="text-xs font-extrabold text-slate-900 mt-0.5 break-all">--</div>
+                        <div id="security-current-admin-role" class="text-[11px] text-emerald-700 font-semibold mt-0.5 flex items-center gap-1">
+                            <i class="fas fa-check-circle text-[10px]"></i> Role: Super Admin
                         </div>
                     </div>
                 </div>
 
-                <div class="grid grid-cols-1 xl:grid-cols-2 gap-6">
-                    <div class="card p-5 rounded-xl shadow-sm bg-blue-50/30 border-blue-100 space-y-4">
-                        <div class="flex items-center justify-between border-b border-blue-200 pb-2">
-                            <h3 class="text-lg font-bold text-blue-900"><i class="fas fa-database mr-2"></i>Backup & Restore</h3>
-                            <span class="text-xs font-semibold uppercase tracking-widest text-blue-500">Office recovery</span>
+                <!-- 2-Column Responsive Layout: Admin Accounts & Session Monitor -->
+                <div class="grid grid-cols-1 xl:grid-cols-2 gap-4 items-start">
+                    <!-- Admin Accounts Card -->
+                    <div class="card p-4 rounded-xl shadow-xs border border-slate-200/80 bg-white space-y-3.5">
+                        <div class="flex items-center justify-between border-b border-slate-100 pb-2">
+                            <h3 class="text-sm font-bold text-slate-900 flex items-center gap-2">
+                                <i class="fas fa-user-lock text-red-600 text-xs"></i>
+                                Admin Account &amp; Credentials
+                            </h3>
+                            <span id="admin-role-summary" class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Super Admin</span>
                         </div>
-                        <p class="text-sm text-gray-600">Export a full JSON snapshot of master data and restore it when a safe office-approved rollback is required.</p>
-                        <div class="flex flex-wrap gap-3">
-                            <button id="backup-export-btn" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 px-5 rounded-lg shadow-md"><i class="fas fa-download mr-2"></i>Export Backup</button>
-                            <label for="restore-file-input" class="bg-white border border-blue-200 text-blue-700 font-bold py-2.5 px-5 rounded-lg shadow-sm cursor-pointer hover:bg-blue-50"><i class="fas fa-upload mr-2"></i>Select Restore File</label>
-                            <input type="file" id="restore-file-input" accept="application/json,.json" class="hidden">
-                        </div>
-                        <div id="restore-preview" class="hidden bg-white border border-blue-200 rounded-xl p-4 text-sm text-gray-700 space-y-2">
-                            <div class="font-bold text-blue-900">Restore Preview</div>
-                            <div id="restore-preview-meta">--</div>
-                            <div id="restore-preview-counts" class="text-xs text-gray-500"></div>
-                            <button id="run-restore-btn" class="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-lg shadow-sm" disabled><i class="fas fa-history mr-2"></i>Run Restore</button>
+
+                        <!-- Active Admin Profile Display -->
+                        <div id="admin-role-list" class="space-y-2"></div>
+
+                        <!-- Update Login Credentials Form -->
+                        <div class="border-t border-slate-100 pt-3 space-y-2.5">
+                            <div>
+                                <h4 class="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                                    <i class="fas fa-key text-red-500 text-[11px]"></i>
+                                    Update Super Admin Credentials
+                                </h4>
+                                <p class="text-[11px] text-slate-500 mt-0.5">Change Email and/or Password. Current password is required to verify identity.</p>
+                            </div>
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                                <div class="sm:col-span-2">
+                                    <label class="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">Current Password <span class="text-red-500">*</span></label>
+                                    <input type="password" id="admin-cred-current-password" class="w-full py-1.5 px-2.5 text-xs border border-slate-300 rounded-md bg-white text-slate-800 focus:ring-1 focus:ring-red-500 focus:border-red-500" placeholder="Enter current password">
+                                </div>
+                                <div>
+                                    <label class="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">New Email (optional)</label>
+                                    <input type="email" id="admin-cred-new-email" class="w-full py-1.5 px-2.5 text-xs border border-slate-300 rounded-md bg-white text-slate-800 placeholder-slate-400 focus:ring-1 focus:ring-red-500 focus:border-red-500" placeholder="new-admin@institute.com">
+                                </div>
+                                <div>
+                                    <label class="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">New Password (optional)</label>
+                                    <input type="password" id="admin-cred-new-password" class="w-full py-1.5 px-2.5 text-xs border border-slate-300 rounded-md bg-white text-slate-800 placeholder-slate-400 focus:ring-1 focus:ring-red-500 focus:border-red-500" placeholder="At least 6 characters">
+                                </div>
+                            </div>
+                            <div class="pt-1 flex justify-end">
+                                <button type="button" id="update-admin-credentials-btn" class="bg-red-700 hover:bg-red-800 text-white font-bold py-1.5 px-4 rounded-lg text-xs shadow-2xs transition inline-flex items-center gap-1.5 cursor-pointer">
+                                    <i class="fas fa-shield-alt text-[11px]"></i>
+                                    <span>Update Login Credentials</span>
+                                </button>
+                            </div>
                         </div>
                     </div>
 
-                    <div class="card p-5 rounded-xl shadow-sm bg-slate-50 border-slate-200 space-y-4">
-                        <div class="flex items-center justify-between border-b border-slate-200 pb-2">
-                            <h3 class="text-lg font-bold text-slate-900"><i class="fas fa-clipboard-list mr-2"></i>Audit Log</h3>
-                            <span id="audit-log-summary" class="text-xs font-semibold uppercase tracking-widest text-slate-500">0 entries</span>
+                    <!-- Session Monitor Card -->
+                    <div class="card p-4 rounded-xl shadow-xs border border-amber-200/90 bg-amber-50/20 space-y-3.5">
+                        <div class="flex items-center justify-between border-b border-amber-200/70 pb-2">
+                            <h3 class="text-sm font-bold text-amber-950 flex items-center gap-2">
+                                <i class="fas fa-desktop text-amber-600 text-xs"></i>
+                                Session Monitor &amp; Devices
+                            </h3>
+                            <span class="text-[11px] font-bold text-amber-800 bg-amber-100 border border-amber-200 px-2 py-0.5 rounded-full">Active Watchdog</span>
                         </div>
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div><label class="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1">Filter action</label><select id="audit-filter-action" class="w-full p-2.5 border rounded-lg bg-white"><option value="all">All actions</option><option value="security">Security</option><option value="backup">Backup</option><option value="student">Students</option><option value="class">Classes</option><option value="group">Groups</option><option value="fee">Fees</option><option value="website">Website</option></select></div>
-                            <div><label class="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1">Search</label><input type="text" id="audit-search-input" class="w-full p-2.5 border rounded-lg bg-white" placeholder="email, message, entity..."></div>
+
+                        <!-- Compact Status Row -->
+                        <div class="grid grid-cols-2 sm:grid-cols-3 gap-2 text-xs">
+                            <div class="bg-white border border-amber-100 rounded-lg p-2.5">
+                                <span class="text-[10px] font-bold uppercase tracking-wider text-slate-500 block">Session Started</span>
+                                <div id="session-monitor-started" class="font-bold text-slate-800 mt-0.5 truncate">--</div>
+                            </div>
+                            <div class="bg-white border border-amber-100 rounded-lg p-2.5">
+                                <span class="text-[10px] font-bold uppercase tracking-wider text-slate-500 block">Last Activity</span>
+                                <div id="session-monitor-active" class="font-bold text-slate-800 mt-0.5 truncate">--</div>
+                            </div>
+                            <div class="bg-white border border-amber-100 rounded-lg p-2.5 col-span-2 sm:col-span-1">
+                                <span class="text-[10px] font-bold uppercase tracking-wider text-slate-500 block">Session Event</span>
+                                <div id="session-control-last-event" class="font-medium text-slate-700 mt-0.5 text-[11px] truncate" title="Last event">Normal</div>
+                            </div>
                         </div>
-                        <div id="audit-log-list" class="space-y-3 max-h-[420px] overflow-y-auto pr-1"></div>
+
+                        <!-- Active Sessions List -->
+                        <div class="space-y-2">
+                            <div class="text-xs font-bold text-slate-700 flex items-center justify-between">
+                                <span>Active Device Sessions</span>
+                                <span class="text-[10px] text-slate-400">Admin &amp; Staff Terminals</span>
+                            </div>
+                            <div class="border border-slate-200 rounded-lg p-2.5 bg-white space-y-2 max-h-[190px] overflow-y-auto pr-1">
+                                <div id="session-device-list" class="space-y-1.5"></div>
+                                <div id="collection-session-list" class="space-y-1.5"></div>
+                            </div>
+                        </div>
+
+                        <!-- Action Buttons -->
+                        <div class="flex flex-wrap items-center justify-end gap-2 pt-2 border-t border-amber-200/70">
+                            <button type="button" id="refresh-session-monitor-btn" class="bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 font-bold py-1.5 px-3 rounded-lg text-xs shadow-2xs transition inline-flex items-center gap-1 cursor-pointer">
+                                <i class="fas fa-rotate text-[11px]"></i> Refresh
+                            </button>
+                            <button type="button" id="force-logout-btn" class="bg-amber-500 hover:bg-amber-600 text-white font-bold py-1.5 px-3 rounded-lg text-xs shadow-2xs transition inline-flex items-center gap-1 cursor-pointer">
+                                <i class="fas fa-power-off text-[11px]"></i> Force Re-login
+                            </button>
+                            <button type="button" id="logout-current-admin-btn" class="bg-red-600 hover:bg-red-700 text-white font-bold py-1.5 px-3 rounded-lg text-xs shadow-2xs transition inline-flex items-center gap-1 cursor-pointer">
+                                <i class="fas fa-sign-out-alt text-[11px]"></i> Logout Session
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 2-Column Responsive Layout: Backup/Restore & Audit Trail -->
+                <div class="grid grid-cols-1 xl:grid-cols-12 gap-4 items-start">
+                    <!-- Backup & Restore Card (xl:col-span-4) -->
+                    <div class="xl:col-span-4 card p-4 rounded-xl shadow-xs border border-blue-200/80 bg-blue-50/20 space-y-3">
+                        <div class="flex items-center justify-between border-b border-blue-200/70 pb-2">
+                            <h3 class="text-sm font-bold text-blue-900 flex items-center gap-2">
+                                <i class="fas fa-database text-blue-600 text-xs"></i>
+                                Backup &amp; Recovery
+                            </h3>
+                            <span class="text-[11px] font-semibold text-blue-600 bg-blue-100/70 border border-blue-200 px-2 py-0.5 rounded-full">JSON Data</span>
+                        </div>
+                        <p class="text-xs text-slate-600 leading-relaxed">Export a full JSON snapshot of student, staff, fee, and group records for safe offline storage or restore if needed.</p>
+                        <div class="flex flex-wrap gap-2 pt-1">
+                            <button type="button" id="backup-export-btn" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-1.5 px-3.5 rounded-lg text-xs shadow-2xs transition inline-flex items-center gap-1.5 cursor-pointer">
+                                <i class="fas fa-download text-[11px]"></i> Export Backup
+                            </button>
+                            <label for="restore-file-input" class="bg-white border border-blue-200 hover:bg-blue-50 text-blue-700 font-bold py-1.5 px-3.5 rounded-lg text-xs shadow-2xs transition cursor-pointer inline-flex items-center gap-1.5">
+                                <i class="fas fa-upload text-[11px]"></i> Select File
+                            </label>
+                            <input type="file" id="restore-file-input" accept="application/json,.json" class="hidden">
+                        </div>
+                        <div id="restore-preview" class="hidden bg-white border border-blue-200 rounded-lg p-3 text-xs text-slate-700 space-y-2">
+                            <div class="font-bold text-blue-900">Restore Preview</div>
+                            <div id="restore-preview-meta" class="text-[11px]">--</div>
+                            <div id="restore-preview-counts" class="text-[11px] text-slate-500"></div>
+                            <button type="button" id="run-restore-btn" class="bg-red-600 hover:bg-red-700 text-white font-bold py-1.5 px-3.5 rounded-lg text-xs shadow-2xs cursor-pointer" disabled>
+                                <i class="fas fa-history mr-1"></i> Run Restore
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- System Audit Trail Card (xl:col-span-8) -->
+                    <div class="xl:col-span-8 card p-4 rounded-xl shadow-xs border border-slate-200/90 bg-white space-y-3">
+                        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 border-b border-slate-100 pb-2">
+                            <div>
+                                <h3 class="text-sm font-bold text-slate-900 flex items-center gap-2">
+                                    <i class="fas fa-clipboard-list text-slate-700 text-xs"></i>
+                                    System Audit Trail
+                                </h3>
+                                <p class="text-[11px] text-slate-500 mt-0.5">Live record of administrative, fee, and security operations.</p>
+                            </div>
+                            <div class="flex items-center gap-2 self-start sm:self-auto">
+                                <span id="audit-log-summary" class="text-xs font-bold text-slate-600 bg-slate-100 px-2.5 py-0.5 rounded-md border border-slate-200">0 entries</span>
+                                <button type="button" id="clear-audit-logs-btn" class="bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 font-bold py-1 px-2.5 rounded-md text-xs shadow-2xs transition inline-flex items-center gap-1 cursor-pointer" title="Purge previous audit logs">
+                                    <i class="fas fa-trash-alt text-[10px]"></i>
+                                    <span>Clear Logs</span>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Audit Filters -->
+                        <div class="grid grid-cols-1 sm:grid-cols-12 gap-2 items-center bg-slate-50/60 p-2 rounded-lg border border-slate-200/70">
+                            <div class="sm:col-span-5">
+                                <select id="audit-filter-action" class="w-full py-1.5 px-2.5 text-xs border border-slate-300 rounded-md bg-white text-slate-800 font-medium focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
+                                    <option value="all">All Categories</option>
+                                    <option value="security">Security</option>
+                                    <option value="backup">Backup</option>
+                                    <option value="student">Students</option>
+                                    <option value="class">Classes</option>
+                                    <option value="group">Groups</option>
+                                    <option value="fee">Fees</option>
+                                    <option value="website">Website</option>
+                                </select>
+                            </div>
+                            <div class="sm:col-span-7 relative">
+                                <i class="fas fa-search absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 text-xs pointer-events-none"></i>
+                                <input type="text" id="audit-search-input" class="w-full py-1.5 pl-8 pr-2.5 text-xs border border-slate-300 rounded-md bg-white text-slate-800 placeholder-slate-400 focus:ring-1 focus:ring-blue-500 focus:border-blue-500" placeholder="Filter by email, action, message...">
+                            </div>
+                        </div>
+
+                        <!-- Audit List -->
+                        <div id="audit-log-list" class="space-y-2.5 max-h-[460px] overflow-y-auto pr-1"></div>
                     </div>
                 </div>
             </section>

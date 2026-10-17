@@ -780,12 +780,16 @@ const renderAuditLogList = () => {
     const listEl = document.getElementById('audit-log-list');
     const summaryEl = document.getElementById('audit-log-summary');
     if (!listEl || !summaryEl) return;
+
     const filtered = auditLogs.filter((entry) => {
         const haystack = `${entry.action || ''} ${entry.category || ''} ${entry.message || ''} ${entry.adminEmail || ''} ${entry.entityType || ''}`.toLowerCase();
         return (actionFilter === 'all' || entry.category === actionFilter) && (!term || haystack.includes(term));
     });
+
     summaryEl.textContent = `${filtered.length} entr${filtered.length === 1 ? 'y' : 'ies'}`;
-    document.getElementById('dashboard-audit-count').textContent = String(Math.min(auditLogs.length, 99));
+    const dashCount = document.getElementById('dashboard-audit-count');
+    if (dashCount) dashCount.textContent = String(Math.min(auditLogs.length, 99));
+
     const resolveAuditTarget = (entry = {}) => {
         if (entry.category === 'backup') return 'security-settings';
         if (entry.category === 'security') return 'security-settings';
@@ -796,25 +800,61 @@ const renderAuditLogList = () => {
         if (entry.category === 'fee') return 'fee-settings';
         return '';
     };
+
     const humanizeAction = (action = '') => action
         ? action.replace(/\./g, ' • ').replace(/_/g, ' ').replace(/\b\w/g, (char) => char.toUpperCase())
         : 'General Event';
+
     listEl.innerHTML = filtered.length ? filtered.slice(0, 100).map((entry) => {
+        if (entry.isClearCheckpoint || entry.action === 'audit.cleared') {
+            const summary = entry.summary || {};
+            const categories = summary.categories || {};
+            const catPills = Object.entries(categories)
+                .filter(([_, count]) => count > 0)
+                .map(([cat, count]) => `<span class="inline-flex items-center px-2 py-0.5 rounded bg-amber-100/90 text-amber-900 text-[11px] font-bold border border-amber-300">${escapeHtml(cat.toUpperCase())}: ${count}</span>`)
+                .join(' ');
+            return `
+            <div class="bg-amber-50/70 border border-amber-300 rounded-xl p-3.5 shadow-2xs space-y-2">
+                <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1.5 border-b border-amber-200/80 pb-2">
+                    <div class="flex items-center gap-2">
+                        <span class="w-6 h-6 rounded-md bg-amber-600 text-white flex items-center justify-center text-xs shadow-2xs font-bold">
+                            <i class="fas fa-broom"></i>
+                        </span>
+                        <div>
+                            <div class="font-extrabold text-xs sm:text-sm text-amber-950">${escapeHtml(entry.message || 'Audit logs cleared by Super Admin')}</div>
+                            <div class="text-[11px] text-amber-800 font-medium">${escapeHtml(entry.adminEmail || 'Admin')} • ${escapeHtml(formatDateTime(entry.createdAt))}</div>
+                        </div>
+                    </div>
+                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider bg-amber-200 text-amber-900 border border-amber-300 self-start sm:self-auto">Purge Checkpoint</span>
+                </div>
+                ${summary.totalPurged !== undefined ? `
+                <div class="bg-white/95 p-2 rounded-lg border border-amber-200/80 text-xs text-slate-700 space-y-1">
+                    <div class="font-semibold text-slate-800 text-[11px] flex items-center justify-between">
+                        <span>Purged Logs Summary:</span>
+                        <span class="font-bold text-amber-900 bg-amber-100 px-1.5 py-0.5 rounded">${summary.totalPurged} previous events cleared</span>
+                    </div>
+                    ${catPills ? `<div class="flex flex-wrap gap-1 pt-1">${catPills}</div>` : ''}
+                    ${summary.period?.from ? `<div class="text-[10px] text-slate-400">Period: ${escapeHtml(formatDateTime(summary.period.from))} to ${escapeHtml(formatDateTime(summary.period.to))}</div>` : ''}
+                </div>
+                ` : ''}
+            </div>`;
+        }
+
         const target = resolveAuditTarget(entry);
         return `
-        <div class="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
-            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-                <div>
-                    <div class="font-bold text-slate-900">${escapeHtml(entry.message || entry.action || 'Audit event')}</div>
-                    <div class="text-xs text-slate-500 mt-1">${escapeHtml(entry.adminEmail || 'system')} • ${escapeHtml(getRoleMeta(entry.adminRole).label)} • ${escapeHtml(formatDateTime(entry.createdAt))}</div>
+        <div class="bg-white border border-slate-200 rounded-xl p-3 shadow-2xs hover:border-slate-300 transition space-y-1.5">
+            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1.5">
+                <div class="min-w-0">
+                    <div class="font-bold text-xs sm:text-sm text-slate-900 leading-snug break-words">${escapeHtml(entry.message || entry.action || 'Audit event')}</div>
+                    <div class="text-[11px] text-slate-500 mt-0.5">${escapeHtml(entry.adminEmail || 'system')} • ${escapeHtml(getRoleMeta(entry.adminRole).label)} • ${escapeHtml(formatDateTime(entry.createdAt))}</div>
                 </div>
-                <span class="inline-flex items-center px-2.5 py-1 rounded-full border text-xs font-bold uppercase tracking-wider bg-slate-100 text-slate-700">${escapeHtml(entry.category || 'system')}</span>
+                <span class="inline-flex items-center px-2 py-0.5 rounded-md border text-[10px] font-bold uppercase tracking-wider bg-slate-50 text-slate-700 shrink-0 self-start sm:self-auto">${escapeHtml(entry.category || 'system')}</span>
             </div>
-            <div class="text-[11px] text-slate-600 mt-2 font-semibold">Action: ${escapeHtml(humanizeAction(entry.action || ''))}</div>
-            ${(entry.entityType || entry.entityId) ? `<div class="text-xs text-slate-500 mt-2">${escapeHtml(entry.entityType || 'entity')}${entry.entityId ? ` • ${escapeHtml(entry.entityId)}` : ''}</div>` : ''}
-            ${target ? `<div class="mt-3"><button class="audit-open-target-btn text-xs font-bold text-indigo-700 bg-indigo-50 border border-indigo-200 px-3 py-1.5 rounded" data-target="${target}">Open Related Section</button></div>` : ''}
+            <div class="text-[11px] text-slate-600 font-medium">Action: ${escapeHtml(humanizeAction(entry.action || ''))}</div>
+            ${(entry.entityType || entry.entityId) ? `<div class="text-[11px] text-slate-500">${escapeHtml(entry.entityType || 'entity')}${entry.entityId ? ` • ${escapeHtml(entry.entityId)}` : ''}</div>` : ''}
+            ${target ? `<div class="pt-1"><button class="audit-open-target-btn text-[11px] font-bold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 px-2.5 py-1 rounded transition" data-target="${target}">Open Related Section</button></div>` : ''}
         </div>`;
-    }).join('') : '<p class="text-sm text-slate-500 italic">No audit entries match the current filters.</p>';
+    }).join('') : '<p class="text-xs text-slate-500 py-6 text-center italic">No audit entries match the current filters.</p>';
 };
 const applyRoleAccessUI = () => {
     document.querySelectorAll('.nav-link').forEach((link) => {
@@ -9399,7 +9439,7 @@ document.getElementById('dir-override-clear-btn')?.addEventListener('click', asy
 });
 
 // --- 11. SECURITY SETTINGS ---
-document.getElementById('save-admin-auth-btn').addEventListener('click', async () => {
+document.getElementById('save-admin-auth-btn')?.addEventListener('click', async () => {
     if(!requirePermission('security.manage')) return;
     const currentAccount = getCurrentAdminAccount();
     if (!currentAccount?.email) return alert('Current admin account is not available.');
@@ -9587,15 +9627,101 @@ document.getElementById('run-restore-btn').addEventListener('click', async () =>
     if (runRestoreBtn) runRestoreBtn.disabled = true;
     alert('Backup restore completed.');
 });
-document.getElementById('audit-filter-action').addEventListener('change', renderAuditLogList);
-document.getElementById('audit-search-input').addEventListener('input', renderAuditLogList);
-document.getElementById('audit-log-list').addEventListener('click', (event) => {
+document.getElementById('audit-filter-action')?.addEventListener('change', renderAuditLogList);
+document.getElementById('audit-search-input')?.addEventListener('input', renderAuditLogList);
+document.getElementById('audit-log-list')?.addEventListener('click', (event) => {
     const targetBtn = event.target.closest('.audit-open-target-btn');
     if (!targetBtn) return;
     const target = targetBtn.dataset.target;
     if (!target) return;
     activateAdminPage(target, { suppressDeniedAlert: false });
 });
+
+const handleClearAuditLogs = async () => {
+    if (!requirePermission('security.manage')) return;
+    if (!auditLogs.length) {
+        return alert("There are no audit logs to clear.");
+    }
+
+    const currentCount = auditLogs.length;
+    if (!confirm(`Are you sure you want to clear all ${currentCount} audit logs?\n\nThis will purge all previous audit records and record a single fresh checkpoint with a summary of the cleared events.`)) {
+        return;
+    }
+
+    const clearBtn = document.getElementById('clear-audit-logs-btn');
+    try {
+        if (clearBtn) {
+            clearBtn.disabled = true;
+            clearBtn.innerHTML = '<i class="fas fa-spinner fa-spin text-[10px]"></i> <span>Clearing...</span>';
+        }
+
+        // 1. Calculate summary breakdown
+        const categoryCounts = {};
+        let oldestTs = null;
+        let newestTs = null;
+
+        auditLogs.forEach((log) => {
+            const cat = log.category || 'general';
+            categoryCounts[cat] = (categoryCounts[cat] || 0) + 1;
+            const ts = log.timestamp || (log.createdAt ? new Date(log.createdAt).getTime() : null);
+            if (ts) {
+                if (!oldestTs || ts < oldestTs) oldestTs = ts;
+                if (!newestTs || ts > newestTs) newestTs = ts;
+            }
+        });
+
+        // 2. Fetch all existing auditLog document refs
+        const snap = await getDocs(collection(db, `${BASE_PATH}/auditLogs`));
+        const allDocRefs = snap.docs.map(d => d.ref);
+
+        // 3. Delete in batches of 400 (Firestore limit is 500)
+        const batchSize = 400;
+        for (let i = 0; i < allDocRefs.length; i += batchSize) {
+            const batch = writeBatch(db);
+            const chunk = allDocRefs.slice(i, i + batchSize);
+            chunk.forEach(ref => batch.delete(ref));
+            await batch.commit();
+        }
+
+        // 4. Create the single new checkpoint log document
+        const checkpointData = {
+            category: 'security',
+            action: 'audit.cleared',
+            adminEmail: currentAdminEmail || 'super_admin',
+            adminRole: currentAdminRole || 'super_admin',
+            createdAt: new Date().toISOString(),
+            timestamp: Date.now(),
+            isClearCheckpoint: true,
+            message: `Audit logs cleared by Super Admin (${currentCount} previous entries purged).`,
+            summary: {
+                totalPurged: currentCount,
+                categories: categoryCounts,
+                period: {
+                    from: oldestTs ? new Date(oldestTs).toISOString() : '',
+                    to: newestTs ? new Date(newestTs).toISOString() : ''
+                }
+            }
+        };
+
+        const newDocRef = await addDoc(collection(db, `${BASE_PATH}/auditLogs`), checkpointData);
+
+        // Update local memory so UI immediately updates
+        auditLogs = [{ id: newDocRef.id, ...checkpointData }];
+        renderAuditLogList();
+
+        alert(`All ${currentCount} audit logs cleared successfully. Checkpoint recorded.`);
+    } catch (err) {
+        console.error("Failed to clear audit logs:", err);
+        alert("Failed to clear audit logs. Please check your network connection and permissions.");
+    } finally {
+        if (clearBtn) {
+            clearBtn.disabled = false;
+            clearBtn.innerHTML = '<i class="fas fa-trash-alt text-[10px]"></i> <span>Clear Logs</span>';
+        }
+    }
+};
+
+document.getElementById('clear-audit-logs-btn')?.addEventListener('click', handleClearAuditLogs);
 
 document.getElementById('add-academic-year-btn').addEventListener('click', async () => {
     if(!requirePermission('academic-years.manage')) return;
