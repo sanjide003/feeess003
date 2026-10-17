@@ -6058,23 +6058,268 @@ document.getElementById('group-creation-container').addEventListener('change', e
         renderGroupStudentDatalist(idx);
     }
 });
+let pendingGroupCreationData = null;
+
+const closeUnifyFamilyModal = () => {
+    const modal = document.getElementById('group-unify-family-modal');
+    if (modal) {
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+    }
+    pendingGroupCreationData = null;
+};
+
+const openUnifyFamilyModal = (creationData) => {
+    const modal = document.getElementById('group-unify-family-modal');
+    const listContainer = document.getElementById('unify-family-members-list');
+    const skipCheckbox = document.getElementById('unify-family-skip-checkbox');
+    if (!modal || !listContainer) return;
+
+    pendingGroupCreationData = creationData;
+    const { studentIds, groupFee } = creationData;
+
+    const groupStudents = studentIds.map(id =>
+        (rawStudents || []).find(s => s.id === id) || (students || []).find(s => s.id === id)
+    ).filter(Boolean);
+
+    if (groupStudents.length < 2) {
+        alert("Could not load member details for unification.");
+        return;
+    }
+
+    if (skipCheckbox) skipCheckbox.checked = false;
+
+    listContainer.innerHTML = groupStudents.map((st, idx) => {
+        const fatherName = st.father || st.profile?.father || '--';
+        const fatherMobile = st.mobile || st.phone || st.profile?.mobile || '--';
+        const motherName = st.mother || st.profile?.mother || '--';
+        const motherMobile = st.motherMobile || st.profile?.motherMobile || '--';
+        const address = st.address || st.profile?.address || '--';
+        const className = st.class || st.studentClass || '--';
+        const adm = st.adm || '--';
+        const isChecked = (idx === 0);
+
+        return `
+            <label class="unify-student-card block p-3.5 rounded-xl border ${isChecked ? 'border-blue-500 bg-blue-50/70 ring-1 ring-blue-400' : 'border-slate-200 bg-white'} hover:border-blue-300 transition cursor-pointer relative select-none">
+                <div class="flex items-start gap-3">
+                    <input type="radio" name="unify-primary-student" value="${st.id}" class="unify-primary-radio mt-1 w-4 h-4 text-blue-600 border-slate-300 focus:ring-blue-500 shrink-0" ${isChecked ? 'checked' : ''}>
+                    <div class="flex-1 min-w-0">
+                        <div class="flex flex-wrap items-center justify-between gap-1 pb-1.5 border-b border-slate-100">
+                            <div class="font-extrabold text-sm text-slate-900">${escapeHtml(st.name)}</div>
+                            <div class="text-xs text-slate-500 font-mono">
+                                <span>Adm: <b class="text-slate-700">${escapeHtml(adm)}</b></span> · 
+                                <span>Class: <b class="text-slate-700">${escapeHtml(className)}</b></span>
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1.5 mt-2 text-xs">
+                            <div>
+                                <span class="text-slate-500 font-medium">Father (ഉപ്പ):</span>
+                                <span class="font-bold text-slate-800 ml-1">${escapeHtml(fatherName)}</span>
+                            </div>
+                            <div>
+                                <span class="text-slate-500 font-medium">Father Phone:</span>
+                                <span class="font-bold font-mono text-slate-800 ml-1">${escapeHtml(fatherMobile)}</span>
+                            </div>
+                            <div>
+                                <span class="text-slate-500 font-medium">Mother (ഉമ്മ):</span>
+                                <span class="font-bold text-slate-800 ml-1">${escapeHtml(motherName)}</span>
+                            </div>
+                            <div>
+                                <span class="text-slate-500 font-medium">Mother Phone:</span>
+                                <span class="font-bold font-mono text-slate-800 ml-1">${escapeHtml(motherMobile)}</span>
+                            </div>
+                            <div class="sm:col-span-2">
+                                <span class="text-slate-500 font-medium">Address (വിലാസം):</span>
+                                <span class="font-medium text-slate-800 ml-1">${escapeHtml(address)}</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </label>
+        `;
+    }).join('');
+
+    const updateCardVisuals = () => {
+        const isSkipped = skipCheckbox?.checked;
+        listContainer.querySelectorAll('.unify-student-card').forEach(card => {
+            const radio = card.querySelector('.unify-primary-radio');
+            if (isSkipped) {
+                radio.disabled = true;
+                card.classList.remove('border-blue-500', 'bg-blue-50/70', 'ring-1', 'ring-blue-400');
+                card.classList.add('border-slate-200', 'bg-slate-50/50', 'opacity-60');
+            } else {
+                radio.disabled = false;
+                if (radio && radio.checked) {
+                    card.classList.remove('border-slate-200', 'bg-white', 'bg-slate-50/50', 'opacity-60');
+                    card.classList.add('border-blue-500', 'bg-blue-50/70', 'ring-1', 'ring-blue-400');
+                } else {
+                    card.classList.remove('border-blue-500', 'bg-blue-50/70', 'ring-1', 'ring-blue-400', 'bg-slate-50/50', 'opacity-60');
+                    card.classList.add('border-slate-200', 'bg-white');
+                }
+            }
+        });
+    };
+
+    listContainer.querySelectorAll('.unify-primary-radio').forEach(r => {
+        r.addEventListener('change', updateCardVisuals);
+    });
+
+    if (skipCheckbox) {
+        skipCheckbox.onchange = updateCardVisuals;
+    }
+
+    modal.classList.remove('hidden');
+    modal.classList.add('flex');
+};
+
+const handleConfirmGroupCreation = async () => {
+    if (!requirePermission('groups.manage')) return;
+    if (!pendingGroupCreationData) return;
+
+    const { studentIds, groupFee } = pendingGroupCreationData;
+    const modal = document.getElementById('group-unify-family-modal');
+    const confirmBtn = document.getElementById('unify-family-confirm-btn');
+    const skipCheckbox = document.getElementById('unify-family-skip-checkbox');
+
+    const groupStudents = studentIds.map(id =>
+        (rawStudents || []).find(s => s.id === id) || (students || []).find(s => s.id === id)
+    ).filter(Boolean);
+
+    const isSkipped = !!skipCheckbox?.checked;
+    let chosenStudent = null;
+
+    if (!isSkipped) {
+        const chosenId = modal?.querySelector('input[name="unify-primary-student"]:checked')?.value;
+        chosenStudent = groupStudents.find(s => s.id === chosenId) || groupStudents[0];
+    }
+
+    try {
+        if (confirmBtn) {
+            confirmBtn.disabled = true;
+            confirmBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> <span>Creating...</span>';
+        }
+
+        const batch = writeBatch(db);
+        const nowTs = Date.now();
+
+        // 1. If unifying family details, batch update each student in the group
+        if (chosenStudent) {
+            const father = (chosenStudent.father || chosenStudent.profile?.father || '').toUpperCase().trim();
+            const mobile = (chosenStudent.mobile || chosenStudent.phone || chosenStudent.profile?.mobile || '').trim();
+            const mother = (chosenStudent.mother || chosenStudent.profile?.mother || '').toUpperCase().trim();
+            const motherMobile = (chosenStudent.motherMobile || chosenStudent.profile?.motherMobile || '').trim();
+            const address = (chosenStudent.address || chosenStudent.profile?.address || '').trim();
+
+            groupStudents.forEach(st => {
+                const stRef = doc(db, `${BASE_PATH}/students`, st.id);
+                const updatePayload = {
+                    father: father,
+                    mobile: mobile,
+                    mother: mother,
+                    motherMobile: motherMobile,
+                    address: address,
+                    'profile.father': father,
+                    'profile.mobile': mobile,
+                    'profile.mother': mother,
+                    'profile.motherMobile': motherMobile,
+                    'profile.address': address,
+                    updatedAt: new Date().toISOString()
+                };
+                batch.update(stRef, updatePayload);
+
+                // Update local memory objects
+                st.father = father;
+                st.mobile = mobile;
+                st.mother = mother;
+                st.motherMobile = motherMobile;
+                st.address = address;
+                if (!st.profile) st.profile = {};
+                st.profile.father = father;
+                st.profile.mobile = mobile;
+                st.profile.mother = mother;
+                st.profile.motherMobile = motherMobile;
+                st.profile.address = address;
+            });
+        }
+
+        // 2. Create the student group document
+        const groupRef = doc(collection(db, `${BASE_PATH}/studentGroups`));
+        const groupPayload = {
+            academicYear: activeAcademicYear || currentAcademicYear,
+            memberIds: studentIds,
+            fee: groupFee,
+            createdAt: nowTs,
+            updatedAt: nowTs
+        };
+        batch.set(groupRef, groupPayload);
+
+        await batch.commit();
+
+        // Update local memory
+        studentGroups.push({ id: groupRef.id, ...groupPayload });
+
+        await logAuditEvent({
+            category: 'group',
+            action: 'group.create',
+            entityType: 'studentGroup',
+            entityId: groupRef.id,
+            message: `Student group created with ${studentIds.length} members. Fee: ₹${groupFee}.${chosenStudent ? ` Family details consolidated from ${chosenStudent.name}.` : ''}`
+        });
+
+        closeUnifyFamilyModal();
+        renderStudentGroups();
+        if (typeof renderStudentList === 'function') renderStudentList();
+
+        // Clear creation form
+        document.getElementById('num-of-students-group').value = '';
+        document.getElementById('group-monthly-fee').value = '';
+        document.getElementById('group-creation-container').innerHTML = '';
+        document.getElementById('create-group-btn-container')?.classList.add('hidden');
+
+        alert(`Student Group created successfully!${chosenStudent ? ' Family details (Father, Mother, Phone numbers, and Address) have been unified across all members.' : ''}`);
+    } catch (err) {
+        console.error("Failed to create student group:", err);
+        alert("Failed to save student group. Please check your network connection and try again.");
+    } finally {
+        if (confirmBtn) {
+            confirmBtn.disabled = false;
+            confirmBtn.innerHTML = '<i class="fas fa-check-circle"></i> <span>Confirm &amp; Create Group</span>';
+        }
+    }
+};
+
+document.getElementById('unify-family-modal-close')?.addEventListener('click', closeUnifyFamilyModal);
+document.getElementById('unify-family-cancel-btn')?.addEventListener('click', closeUnifyFamilyModal);
+document.getElementById('unify-family-confirm-btn')?.addEventListener('click', handleConfirmGroupCreation);
+
 document.getElementById('create-group-btn').addEventListener('click', async () => {
     if(!requirePermission('groups.manage')) return;
+
     const selects = Array.from(document.querySelectorAll('.grp-stu')).map((input) => {
         const idx = input.dataset.idx;
         const className = document.querySelector(`.grp-cls[data-idx="${idx}"]`)?.value || '';
         const gender = document.querySelector(`.grp-gen[data-idx="${idx}"]`)?.value || '';
         return findStudentFromTypedGroupValue(input.value, className, gender)?.id || '';
     }).filter(Boolean);
-    const fee = parseFloat(document.getElementById('group-monthly-fee').value) || 0;
-    if(selects.length < 2 || new Set(selects).size !== selects.length) return alert("Please select unique valid students from the suggestions.");
 
-    if(!confirm("Create new student group?")) return;
+    if (selects.length < 2 || new Set(selects).size !== selects.length) {
+        return alert("Please select at least 2 unique valid students from the suggestions.");
+    }
 
-    const nowTs = Date.now();
-    const groupDoc = await addDoc(collection(db, `${BASE_PATH}/studentGroups`), { academicYear: activeAcademicYear || currentAcademicYear, memberIds: selects, fee: fee, createdAt: nowTs, updatedAt: nowTs });
-    await logAuditEvent({ category: 'group', action: 'group.create', entityType: 'studentGroup', entityId: groupDoc.id, message: `Student group created with ${selects.length} members.` });
-    alert("Group Created Successfully!"); document.getElementById('num-of-students-group').value = ''; document.getElementById('group-monthly-fee').value = ''; document.getElementById('group-creation-container').innerHTML = ''; document.getElementById('create-group-btn-container').classList.add('hidden');
+    const feeInput = document.getElementById('group-monthly-fee');
+    const feeVal = feeInput?.value?.trim();
+    const fee = parseFloat(feeVal);
+
+    if (!feeVal || isNaN(fee) || fee <= 0) {
+        alert("Group Monthly Fee is mandatory. Please enter a valid fee amount.");
+        feeInput?.focus();
+        return;
+    }
+
+    openUnifyFamilyModal({
+        studentIds: selects,
+        groupFee: fee
+    });
 });
 
 // --- 6.1 RESULT MANAGEMENT ---

@@ -1019,7 +1019,7 @@
                         <div class="space-y-4">
                             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                 <div><label class="block text-sm font-semibold mb-1">Number of Students to Group</label><input type="number" id="num-of-students-group" min="2" class="w-full p-2.5 border rounded-lg shadow-sm" placeholder="e.g. 2"></div>
-                                <div><label class="block text-sm font-semibold mb-1 text-blue-700">Group Monthly Fee (₹) <span class="text-xs font-normal text-gray-500">(Optional)</span></label><input type="number" id="group-monthly-fee" class="w-full p-2.5 border border-blue-300 rounded-lg shadow-sm bg-blue-50 font-bold" placeholder="e.g. 800"></div>
+                                <div><label class="block text-sm font-semibold mb-1 text-blue-700">Group Monthly Fee (₹) <span class="text-rose-600 font-bold">*</span></label><input type="number" id="group-monthly-fee" min="1" class="w-full p-2.5 border border-blue-300 rounded-lg shadow-sm bg-blue-50 font-bold" placeholder="e.g. 800" required></div>
                             </div>
                             <div id="group-creation-container" class="space-y-4"></div>
                             <div id="create-group-btn-container" class="text-right hidden border-t pt-4"><button id="create-group-btn" class="btn-primary font-bold py-2.5 px-8 rounded-lg shadow-md">Create Group</button></div>
@@ -2030,6 +2030,50 @@
             <div class="flex justify-end gap-3 mt-6 pt-4 border-t">
                 <button id="edit-group-cancel" class="px-5 py-2.5 bg-gray-200 text-gray-800 font-bold rounded-lg hover:bg-gray-300">Cancel</button>
                 <button id="edit-group-update" class="btn-primary px-6 py-2.5 rounded-lg font-bold shadow-md">Update Group</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Unify Family & Guardian Details Confirmation Modal for Student Group -->
+    <div id="group-unify-family-modal" class="fixed inset-0 bg-black/60 items-center justify-center hidden p-4 z-[9999] overflow-y-auto">
+        <div class="bg-white rounded-2xl shadow-2xl p-5 sm:p-6 w-full max-w-2xl mx-auto space-y-4 my-8">
+            <div class="flex items-center justify-between border-b pb-3">
+                <div class="flex items-center gap-2.5">
+                    <span class="w-8 h-8 rounded-lg bg-blue-600 text-white flex items-center justify-center text-sm shadow-xs">
+                        <i class="fas fa-users-rectangle"></i>
+                    </span>
+                    <div>
+                        <h3 class="text-base sm:text-lg font-bold text-slate-900">Unify Family &amp; Guardian Details</h3>
+                        <p class="text-xs text-slate-500">Confirm which student's family details should be consolidated across all group members.</p>
+                    </div>
+                </div>
+                <button type="button" id="unify-family-modal-close" class="text-slate-400 hover:text-slate-600 text-xl font-bold p-1 leading-none">&times;</button>
+            </div>
+
+            <div class="p-3 bg-blue-50/70 border border-blue-200 rounded-xl text-xs text-blue-900 leading-relaxed flex items-start gap-2">
+                <i class="fas fa-info-circle text-blue-600 mt-0.5 shrink-0"></i>
+                <span>Select the primary student below whose <b>Father Name</b>, <b>Father Phone</b>, <b>Mother Name</b>, <b>Mother Phone</b>, and <b>Address</b> will be unified across all siblings in this group.</span>
+            </div>
+
+            <!-- List of Member Cards with Radio Selection -->
+            <div id="unify-family-members-list" class="space-y-2.5 max-h-[380px] overflow-y-auto pr-1">
+                <!-- Dynamically populated student cards -->
+            </div>
+
+            <!-- Optional: Keep existing details checkbox -->
+            <div class="pt-2 border-t border-slate-100 flex items-center justify-between">
+                <label class="inline-flex items-center gap-2 text-xs text-slate-600 cursor-pointer select-none">
+                    <input type="checkbox" id="unify-family-skip-checkbox" class="w-4 h-4 text-slate-600 rounded border-slate-300">
+                    <span>Keep individual details as they are (Do not unify)</span>
+                </label>
+            </div>
+
+            <div class="flex items-center justify-end gap-3 pt-3 border-t">
+                <button type="button" id="unify-family-cancel-btn" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-lg transition">Cancel</button>
+                <button type="button" id="unify-family-confirm-btn" class="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-lg shadow-sm transition flex items-center gap-1.5 cursor-pointer">
+                    <i class="fas fa-check-circle"></i>
+                    <span>Confirm &amp; Create Group</span>
+                </button>
             </div>
         </div>
     </div>
