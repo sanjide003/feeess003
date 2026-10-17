@@ -4444,16 +4444,56 @@ const updateContinuitySelectedFeeTotal = () => {
     const totalEl = document.getElementById('continuity-selected-fee-total');
     if (totalEl) totalEl.textContent = `₹${total.toLocaleString('en-IN')}`;
 
+    const studentId = document.getElementById('continuity-selected-student-id')?.value;
+    const student = (rawStudents || []).find(s => s.id === studentId);
+    const exitDate = document.getElementById('continuity-exit-date')?.value || null;
+    const pendingItems = student ? getStudentDetailedPendingFees(student, exitDate) : [];
+    const totalUnpaid = pendingItems.reduce((sum, it) => sum + Number(it.amount || 0), 0);
+
+    const totalUnpaidEl = document.getElementById('continuity-total-unpaid-dues');
+    if (totalUnpaidEl) totalUnpaidEl.textContent = `₹${totalUnpaid.toLocaleString('en-IN')}`;
+
+    const remaining = Math.max(0, totalUnpaid - total);
+    const remEl = document.getElementById('continuity-remaining-fee-balance');
+    if (remEl) {
+        remEl.textContent = `₹${remaining.toLocaleString('en-IN')}`;
+        if (remaining === 0 && total > 0) {
+            remEl.className = 'text-xs sm:text-sm font-extrabold text-emerald-700 tabular-nums';
+        } else {
+            remEl.className = 'text-xs sm:text-sm font-extrabold text-rose-700 tabular-nums';
+        }
+    }
+
+    const collectFeeCheckbox = document.getElementById('continuity-collect-fee-now');
+    if (collectFeeCheckbox) {
+        if (total > 0 && !collectFeeCheckbox.checked) {
+            collectFeeCheckbox.checked = true;
+            const receiptInput = document.getElementById('continuity-fee-receipt-no');
+            const paymentDateInput = document.getElementById('continuity-fee-payment-date');
+            if (receiptInput && !receiptInput.value) receiptInput.value = getNextReceiptNo();
+            if (paymentDateInput && !paymentDateInput.value) paymentDateInput.value = exitDate || new Date().toISOString().split('T')[0];
+        }
+    }
+
     const container = document.getElementById('continuity-fee-items-container');
     if (container) {
         container.querySelectorAll('.continuity-fee-card').forEach(card => {
             const cb = card.querySelector('.continuity-fee-checkbox');
+            const amtEl = card.querySelector('.continuity-fee-card-amount');
             if (cb && cb.checked) {
-                card.classList.remove('border-slate-200', 'bg-white', 'opacity-60');
-                card.classList.add('border-emerald-500', 'bg-emerald-50/80', 'ring-1', 'ring-emerald-400/70');
+                card.classList.remove('border-slate-200', 'bg-white', 'opacity-70');
+                card.classList.add('border-emerald-500', 'bg-emerald-50/80', 'ring-1', 'ring-emerald-400/70', 'opacity-100');
+                if (amtEl) {
+                    amtEl.classList.remove('text-slate-700');
+                    amtEl.classList.add('text-emerald-800');
+                }
             } else if (cb) {
-                card.classList.remove('border-emerald-500', 'bg-emerald-50/80', 'ring-1', 'ring-emerald-400/70');
-                card.classList.add('border-slate-200', 'bg-white', 'opacity-60');
+                card.classList.remove('border-emerald-500', 'bg-emerald-50/80', 'ring-1', 'ring-emerald-400/70', 'opacity-100');
+                card.classList.add('border-slate-200', 'bg-white', 'opacity-70');
+                if (amtEl) {
+                    amtEl.classList.remove('text-emerald-800');
+                    amtEl.classList.add('text-slate-700');
+                }
             }
         });
     }
@@ -4464,6 +4504,7 @@ const renderContinuityPendingFees = (student, exitDateStr) => {
     const feeWrap = document.getElementById('continuity-fee-settlement-wrap');
     const container = document.getElementById('continuity-fee-items-container');
     const duesEl = document.getElementById('continuity-preview-dues');
+    const totalUnpaidEl = document.getElementById('continuity-total-unpaid-dues');
     const collectFeeCheckbox = document.getElementById('continuity-collect-fee-now');
     const receiptInput = document.getElementById('continuity-fee-receipt-no');
     const paymentDateInput = document.getElementById('continuity-fee-payment-date');
@@ -4474,6 +4515,7 @@ const renderContinuityPendingFees = (student, exitDateStr) => {
     const totalPendingDues = pendingItems.reduce((sum, item) => sum + Number(item.amount || 0), 0);
 
     if (duesEl) duesEl.textContent = `₹${totalPendingDues.toLocaleString('en-IN')}`;
+    if (totalUnpaidEl) totalUnpaidEl.textContent = `₹${totalPendingDues.toLocaleString('en-IN')}`;
 
     if (pendingItems.length === 0) {
         container.innerHTML = `
@@ -4493,21 +4535,26 @@ const renderContinuityPendingFees = (student, exitDateStr) => {
 
     if (collectFeeCheckbox) {
         collectFeeCheckbox.disabled = false;
+        collectFeeCheckbox.checked = false; // Default: unselected
     }
 
+    if (receiptInput) receiptInput.value = '';
+    if (paymentDateInput) paymentDateInput.value = exitDateStr || new Date().toISOString().split('T')[0];
+
+    // Render fee items unselected by default
     container.innerHTML = pendingItems.map((item, idx) => `
-        <label for="cont-fee-${idx}" class="continuity-fee-card flex flex-col justify-between p-2 rounded-lg border border-emerald-500 bg-emerald-50/80 ring-1 ring-emerald-400/70 shadow-xs cursor-pointer transition select-none hover:shadow-sm" data-idx="${idx}">
+        <label for="cont-fee-${idx}" class="continuity-fee-card flex flex-col justify-between p-2 rounded-lg border border-slate-200 bg-white opacity-70 shadow-xs cursor-pointer transition select-none hover:shadow-sm" data-idx="${idx}">
             <div class="flex items-start justify-between gap-1">
                 <div class="min-w-0 flex-1">
                     <div class="text-xs font-bold text-slate-900 truncate" title="${escapeHtml(item.name)}">${escapeHtml(item.name)}</div>
                     <div class="text-[10px] text-slate-500 truncate">${item.type === 'month' ? 'Monthly' : 'Item'} · ${escapeHtml(item.academicYear)}</div>
                 </div>
                 <input type="checkbox" id="cont-fee-${idx}" class="continuity-fee-checkbox w-3.5 h-3.5 text-emerald-600 rounded border-slate-300 focus:ring-emerald-500 shrink-0 mt-0.5"
-                       data-key="${escapeHtml(item.key)}" data-type="${escapeHtml(item.type)}" data-amount="${item.amount}" data-name="${escapeHtml(item.name)}" data-year="${escapeHtml(item.academicYear)}" checked>
+                       data-key="${escapeHtml(item.key)}" data-type="${escapeHtml(item.type)}" data-amount="${item.amount}" data-name="${escapeHtml(item.name)}" data-year="${escapeHtml(item.academicYear)}">
             </div>
             <div class="mt-1.5 pt-1 border-t border-slate-200/60 flex items-center justify-between">
                 <span class="text-[9px] font-semibold text-slate-500 uppercase tracking-wider">Fee</span>
-                <span class="text-xs font-extrabold font-mono tabular-nums text-emerald-800">₹${Number(item.amount).toLocaleString('en-IN')}</span>
+                <span class="continuity-fee-card-amount text-xs font-extrabold font-mono tabular-nums text-slate-700">₹${Number(item.amount).toLocaleString('en-IN')}</span>
             </div>
         </label>
     `).join('');
@@ -4520,6 +4567,9 @@ const renderContinuityPendingFees = (student, exitDateStr) => {
     if (selectAllBtn) {
         selectAllBtn.onclick = () => {
             container.querySelectorAll('.continuity-fee-checkbox').forEach(cb => cb.checked = true);
+            if (collectFeeCheckbox) collectFeeCheckbox.checked = true;
+            if (receiptInput && !receiptInput.value) receiptInput.value = getNextReceiptNo();
+            if (paymentDateInput && !paymentDateInput.value) paymentDateInput.value = exitDateStr || new Date().toISOString().split('T')[0];
             updateContinuitySelectedFeeTotal();
         };
     }
@@ -4528,6 +4578,7 @@ const renderContinuityPendingFees = (student, exitDateStr) => {
     if (deselectAllBtn) {
         deselectAllBtn.onclick = () => {
             container.querySelectorAll('.continuity-fee-checkbox').forEach(cb => cb.checked = false);
+            if (collectFeeCheckbox) collectFeeCheckbox.checked = false;
             updateContinuitySelectedFeeTotal();
         };
     }
@@ -4537,12 +4588,15 @@ const renderContinuityPendingFees = (student, exitDateStr) => {
             if (collectFeeCheckbox.checked) {
                 if (receiptInput && !receiptInput.value) receiptInput.value = getNextReceiptNo();
                 if (paymentDateInput && !paymentDateInput.value) paymentDateInput.value = exitDateStr || new Date().toISOString().split('T')[0];
+                const anyChecked = container.querySelector('.continuity-fee-checkbox:checked');
+                if (!anyChecked) {
+                    container.querySelectorAll('.continuity-fee-checkbox').forEach(cb => cb.checked = true);
+                }
+            } else {
+                container.querySelectorAll('.continuity-fee-checkbox').forEach(cb => cb.checked = false);
             }
+            updateContinuitySelectedFeeTotal();
         };
-        if (collectFeeCheckbox.checked) {
-            if (receiptInput && !receiptInput.value) receiptInput.value = getNextReceiptNo();
-            if (paymentDateInput && !paymentDateInput.value) paymentDateInput.value = exitDateStr || new Date().toISOString().split('T')[0];
-        }
     }
 
     updateContinuitySelectedFeeTotal();

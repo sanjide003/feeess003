@@ -743,62 +743,70 @@
                             </div>
                         </div>
 
-                        <!-- 5. Outstanding Fee Breakdown & Immediate Settlement (Compact Grid) -->
-                        <div id="continuity-fee-settlement-wrap" class="hidden rounded-xl border border-indigo-100 bg-gradient-to-br from-indigo-50/40 via-white to-slate-50 p-3 sm:p-3.5 space-y-2.5">
-                            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5 border-b border-indigo-100 pb-2">
-                                <div class="flex items-center gap-2">
-                                    <span class="w-6 h-6 rounded-lg bg-indigo-600 text-white flex items-center justify-center text-xs shadow-xs"><i class="fas fa-receipt"></i></span>
-                                    <div>
-                                        <h4 class="text-xs font-extrabold text-indigo-950 uppercase tracking-wide">Outstanding Fees (Optional Settlement)</h4>
-                                        <p class="text-[10px] text-slate-500">Click any card to select/deselect items for immediate collection.</p>
-                                    </div>
-                                </div>
-                                <div class="flex items-center gap-1.5">
-                                    <button type="button" id="continuity-fee-select-all-btn" class="px-2 py-0.5 bg-white border border-indigo-200 hover:bg-indigo-50 text-indigo-700 text-[11px] font-bold rounded transition">Select All</button>
-                                    <button type="button" id="continuity-fee-deselect-all-btn" class="px-2 py-0.5 bg-white border border-slate-200 hover:bg-slate-50 text-slate-600 text-[11px] font-bold rounded transition">Deselect All</button>
-                                </div>
-                            </div>
-
-                            <!-- Outstanding Fee Items Breakdown Cards Grid -->
-                            <div id="continuity-fee-items-container" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2 max-h-48 overflow-y-auto p-1">
-                                <!-- Rendered dynamically as compact cards -->
-                            </div>
-
-                            <!-- Fee Settlement Collection Form Controls (Compact) -->
-                            <div id="continuity-collection-fields" class="p-2.5 bg-white rounded-lg border border-slate-200/80 space-y-2.5">
-                                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-1.5">
-                                    <label class="inline-flex items-center gap-2 cursor-pointer text-xs font-bold text-slate-800 select-none">
-                                        <input type="checkbox" id="continuity-collect-fee-now" class="w-4 h-4 text-emerald-600 rounded">
+                        <!-- 5. Unified Fee Settlement Card upon Discontinuation -->
+                        <div id="continuity-fee-settlement-wrap" class="hidden rounded-xl border border-slate-200 bg-slate-50/70 p-3 sm:p-4 space-y-3">
+                            <!-- Unified Header: Toggle + Select/Deselect buttons -->
+                            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-200/80 pb-2.5">
+                                <label class="inline-flex items-center gap-2 cursor-pointer select-none">
+                                    <input type="checkbox" id="continuity-collect-fee-now" class="w-4 h-4 text-emerald-600 rounded border-slate-300 focus:ring-emerald-500">
+                                    <span class="text-xs sm:text-sm font-extrabold text-slate-900 flex items-center gap-1.5">
+                                        <i class="fas fa-receipt text-emerald-600 text-xs"></i>
                                         <span>Collect Selected Fees Upon Discontinuation</span>
-                                    </label>
-                                    <div class="text-xs font-bold text-emerald-800 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200">
-                                        Selected: <span id="continuity-selected-fee-total" class="font-mono text-xs sm:text-sm font-extrabold text-emerald-700">₹0</span>
-                                    </div>
+                                    </span>
+                                </label>
+                                <div class="flex items-center gap-1.5">
+                                    <button type="button" id="continuity-fee-select-all-btn" class="px-2 py-0.5 bg-white border border-slate-200 hover:bg-slate-100 text-slate-700 text-[11px] font-bold rounded transition">Select All</button>
+                                    <button type="button" id="continuity-fee-deselect-all-btn" class="px-2 py-0.5 bg-white border border-slate-200 hover:bg-slate-100 text-slate-700 text-[11px] font-bold rounded transition">Deselect All</button>
                                 </div>
+                            </div>
 
-                                <div id="continuity-payment-inputs-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
-                                    <div>
-                                        <label for="continuity-fee-receipt-no" class="block text-[10px] font-bold text-slate-600 mb-0.5">Receipt Number</label>
-                                        <input type="text" id="continuity-fee-receipt-no" class="w-full p-1.5 text-xs border rounded-lg bg-slate-50 font-mono" placeholder="Receipt No">
-                                    </div>
-                                    <div>
-                                        <label for="continuity-fee-payment-date" class="block text-[10px] font-bold text-slate-600 mb-0.5">Payment Date</label>
-                                        <input type="date" id="continuity-fee-payment-date" class="w-full p-1.5 text-xs border rounded-lg bg-slate-50 font-mono">
-                                    </div>
-                                    <div>
-                                        <label for="continuity-fee-payment-mode" class="block text-[10px] font-bold text-slate-600 mb-0.5">Payment Mode</label>
-                                        <select id="continuity-fee-payment-mode" class="w-full p-1.5 text-xs border rounded-lg bg-slate-50 font-semibold text-slate-700">
-                                            <option value="Cash">Cash</option>
-                                            <option value="Online">GPay / UPI / Online</option>
-                                            <option value="Bank">Bank Transfer</option>
-                                            <option value="Card">Card</option>
-                                            <option value="Other">Other</option>
-                                        </select>
-                                    </div>
-                                    <div>
-                                        <label for="continuity-fee-description" class="block text-[10px] font-bold text-slate-600 mb-0.5">Payment Notes</label>
-                                        <input type="text" id="continuity-fee-description" class="w-full p-1.5 text-xs border rounded-lg bg-slate-50" placeholder="e.g. Cleared on exit">
-                                    </div>
+                            <!-- Live Summary Metrics Bar -->
+                            <div class="grid grid-cols-3 gap-2 bg-white rounded-lg p-2 border border-slate-200 text-center font-mono">
+                                <div>
+                                    <div class="text-[9px] uppercase tracking-wider font-bold text-slate-500">Total Unpaid</div>
+                                    <div id="continuity-total-unpaid-dues" class="text-xs sm:text-sm font-extrabold text-slate-800 tabular-nums">₹0</div>
+                                </div>
+                                <div class="border-x border-slate-100">
+                                    <div class="text-[9px] uppercase tracking-wider font-bold text-emerald-700">Selected To Collect</div>
+                                    <div id="continuity-selected-fee-total" class="text-xs sm:text-sm font-extrabold text-emerald-700 tabular-nums">₹0</div>
+                                </div>
+                                <div>
+                                    <div class="text-[9px] uppercase tracking-wider font-bold text-rose-700">Remaining Balance</div>
+                                    <div id="continuity-remaining-fee-balance" class="text-xs sm:text-sm font-extrabold text-rose-700 tabular-nums">₹0</div>
+                                </div>
+                            </div>
+
+                            <!-- Outstanding Fee Items Breakdown Cards Grid (Default: Unchecked) -->
+                            <div class="space-y-1">
+                                <div class="text-[10px] font-bold uppercase tracking-wider text-slate-500">Fee Items:</div>
+                                <div id="continuity-fee-items-container" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2 max-h-44 overflow-y-auto p-1 bg-white rounded-lg border border-slate-200">
+                                    <!-- Rendered dynamically as compact cards (unselected by default) -->
+                                </div>
+                            </div>
+
+                            <!-- Integrated Payment Details Section -->
+                            <div id="continuity-payment-inputs-grid" class="pt-2 border-t border-slate-200/70 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
+                                <div>
+                                    <label for="continuity-fee-receipt-no" class="block text-[10px] font-bold text-slate-600 mb-0.5">Receipt Number</label>
+                                    <input type="text" id="continuity-fee-receipt-no" class="w-full p-1.5 text-xs border rounded-lg bg-white font-mono" placeholder="Receipt No">
+                                </div>
+                                <div>
+                                    <label for="continuity-fee-payment-date" class="block text-[10px] font-bold text-slate-600 mb-0.5">Payment Date</label>
+                                    <input type="date" id="continuity-fee-payment-date" class="w-full p-1.5 text-xs border rounded-lg bg-white font-mono">
+                                </div>
+                                <div>
+                                    <label for="continuity-fee-payment-mode" class="block text-[10px] font-bold text-slate-600 mb-0.5">Payment Mode</label>
+                                    <select id="continuity-fee-payment-mode" class="w-full p-1.5 text-xs border rounded-lg bg-white font-semibold text-slate-700">
+                                        <option value="Cash">Cash</option>
+                                        <option value="Online">GPay / UPI / Online</option>
+                                        <option value="Bank">Bank Transfer</option>
+                                        <option value="Card">Card</option>
+                                        <option value="Other">Other</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label for="continuity-fee-description" class="block text-[10px] font-bold text-slate-600 mb-0.5">Payment Notes</label>
+                                    <input type="text" id="continuity-fee-description" class="w-full p-1.5 text-xs border rounded-lg bg-white" placeholder="e.g. Cleared on exit">
                                 </div>
                             </div>
                         </div>
