@@ -5950,14 +5950,18 @@ const renderGroupStudentDatalist = (idx) => {
     input.placeholder = 'Type student name...';
 };
 const renderStudentGroups = () => {
-     document.getElementById('student-groups-list').innerHTML = studentGroups.length === 0 ? '<p class="text-gray-500 italic p-3">No groups created yet.</p>' : studentGroups.map((g) => {
+    const listNode = document.getElementById('student-groups-list');
+    if (!listNode) return;
+    // Deduplicate groups by unique ID to prevent any duplicate card display
+    const uniqueGroups = Array.from(new Map((studentGroups || []).map((g) => [g.id, g])).values());
+    listNode.innerHTML = uniqueGroups.length === 0 ? '<p class="text-gray-500 italic p-3">No groups created yet.</p>' : uniqueGroups.map((g) => {
         const memberCards = (g.memberIds || []).map((memberId) => {
             const student = students.find((entry) => entry.id === memberId);
             if(!student) return `<span class="inline-flex items-center px-2.5 py-1 rounded-full bg-amber-50 text-amber-700 border border-amber-100 text-xs font-bold">Missing student</span>`;
             return `<span class="inline-flex items-center px-2.5 py-1 rounded-full bg-slate-50 text-slate-700 border border-slate-200 text-xs font-bold">${escapeHtml(student.name || '-')} <span class="ml-1 text-slate-500">(${escapeHtml(student.class || '--')})</span></span>`;
         }).join('');
         return `<div class="bg-white border border-gray-200 p-4 rounded-xl shadow-sm flex flex-col gap-3 sm:flex-row sm:justify-between sm:items-center mb-3"><div class="flex flex-col gap-2"><div class="flex flex-wrap gap-2">${memberCards}</div><span class="text-gray-500 text-sm font-medium"><i class="fas fa-users mr-1"></i> ${(g.memberIds || []).length} Linked Students ${g.fee > 0 ? `<span class="ml-2 text-blue-600 bg-blue-50 px-2 py-0.5 rounded font-bold">₹${g.fee}/month</span>` : ''}</span></div><div class="shrink-0"><button class="text-blue-600 bg-blue-50 hover:bg-blue-100 px-3 py-2 rounded-lg text-sm font-bold transition edit-grp mr-2" data-id="${g.id}"><i class="fas fa-edit"></i> Edit</button><button class="text-red-600 bg-red-50 hover:bg-red-100 px-3 py-2 rounded-lg text-sm font-bold transition del-grp" data-id="${g.id}"><i class="fas fa-trash"></i></button></div></div>`;
-     }).join('');
+    }).join('');
 };
 const renderEditGroupMembers = () => {
     const membersNode = document.getElementById('e-grp-members');
@@ -5999,6 +6003,8 @@ document.getElementById('student-groups-list').addEventListener('click', e => {
         if(!requirePermission('groups.manage')) return;
         if(!confirm("Permanently delete this student group?")) return;
         deleteDoc(doc(db, `${BASE_PATH}/studentGroups`, delBtn.dataset.id));
+        studentGroups = studentGroups.filter((g) => g.id !== delBtn.dataset.id);
+        renderStudentGroups();
         logAuditEvent({ category: 'group', action: 'group.delete', entityType: 'studentGroup', entityId: delBtn.dataset.id, message: 'Student group deleted.' });
     }
     if(editBtn) {
@@ -6037,15 +6043,37 @@ document.getElementById('e-grp-members').addEventListener('click', (e) => {
 });
 document.getElementById('edit-group-update').onclick = async () => {
     if(!requirePermission('groups.manage')) return;
-    const gid = document.getElementById('e-grp-id').value, gfee = parseFloat(document.getElementById('e-grp-fee').value) || 0;
+    const gid = document.getElementById('e-grp-id').value;
+    const feeInput = document.getElementById('e-grp-fee');
+    const feeVal = feeInput?.value?.trim();
+    const gfee = parseFloat(feeVal);
     const newMem = [...editGroupWorkingMembers];
-    if(newMem.length < 2 && newMem.length > 0) return alert("Group must have at least 2 members. Add more or delete group.");
 
-    if(!confirm("Save changes to this group?")) return;
+    if(newMem.length === 0) {
+        if(!confirm("Remove all members and delete this student group?")) return;
+        await deleteDoc(doc(db, `${BASE_PATH}/studentGroups`, gid));
+        studentGroups = studentGroups.filter((g) => g.id !== gid);
+        renderStudentGroups();
+        await logAuditEvent({ category: 'group', action: 'group.delete', entityType: 'studentGroup', entityId: gid, message: 'Student group removed during edit.' });
+        document.getElementById('edit-group-popup').classList.add('hidden');
+        return;
+    }
 
-    if(newMem.length === 0) { await deleteDoc(doc(db, `${BASE_PATH}/studentGroups`, gid)); await logAuditEvent({ category: 'group', action: 'group.delete', entityType: 'studentGroup', entityId: gid, message: 'Student group removed during edit.' }); }
-    else { await updateDoc(doc(db, `${BASE_PATH}/studentGroups`, gid), { fee: gfee, memberIds: newMem, updatedAt: Date.now() }); await logAuditEvent({ category: 'group', action: 'group.update', entityType: 'studentGroup', entityId: gid, message: 'Student group updated.' }); }
+    if(newMem.length < 2) return alert("Group must have at least 2 members. Add more or delete group.");
+
+    if(!feeVal || isNaN(gfee) || gfee <= 0) {
+        alert("Group Monthly Fee is mandatory. Please enter a valid fee amount.");
+        feeInput?.focus();
+        return;
+    }
+
     document.getElementById('edit-group-popup').classList.add('hidden');
+    openUnifyFamilyModal({
+        isEdit: true,
+        groupId: gid,
+        studentIds: newMem,
+        groupFee: gfee
+    });
 };
 
 document.getElementById('num-of-students-group').addEventListener('input', e => {
@@ -6080,10 +6108,11 @@ const openUnifyFamilyModal = (creationData) => {
     const modal = document.getElementById('group-unify-family-modal');
     const listContainer = document.getElementById('unify-family-members-list');
     const skipCheckbox = document.getElementById('unify-family-skip-checkbox');
+    const confirmBtn = document.getElementById('unify-family-confirm-btn');
     if (!modal || !listContainer) return;
 
     pendingGroupCreationData = creationData;
-    const { studentIds, groupFee } = creationData;
+    const { studentIds, isEdit } = creationData;
 
     const groupStudents = studentIds.map(id =>
         (rawStudents || []).find(s => s.id === id) || (students || []).find(s => s.id === id)
@@ -6095,6 +6124,11 @@ const openUnifyFamilyModal = (creationData) => {
     }
 
     if (skipCheckbox) skipCheckbox.checked = false;
+    if (confirmBtn) {
+        confirmBtn.innerHTML = isEdit
+            ? '<i class="fas fa-check-circle"></i> <span>Confirm &amp; Update Group</span>'
+            : '<i class="fas fa-check-circle"></i> <span>Confirm &amp; Save Group</span>';
+    }
 
     listContainer.innerHTML = groupStudents.map((st, idx) => {
         const fatherName = st.father || st.profile?.father || '--';
@@ -6120,7 +6154,7 @@ const openUnifyFamilyModal = (creationData) => {
                         </div>
                         <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1.5 mt-2 text-xs">
                             <div>
-                                <span class="text-slate-500 font-medium">Father (ഉപ്പ):</span>
+                                <span class="text-slate-500 font-medium">Father:</span>
                                 <span class="font-bold text-slate-800 ml-1">${escapeHtml(fatherName)}</span>
                             </div>
                             <div>
@@ -6128,7 +6162,7 @@ const openUnifyFamilyModal = (creationData) => {
                                 <span class="font-bold font-mono text-slate-800 ml-1">${escapeHtml(fatherMobile)}</span>
                             </div>
                             <div>
-                                <span class="text-slate-500 font-medium">Mother (ഉമ്മ):</span>
+                                <span class="text-slate-500 font-medium">Mother:</span>
                                 <span class="font-bold text-slate-800 ml-1">${escapeHtml(motherName)}</span>
                             </div>
                             <div>
@@ -6136,7 +6170,7 @@ const openUnifyFamilyModal = (creationData) => {
                                 <span class="font-bold font-mono text-slate-800 ml-1">${escapeHtml(motherMobile)}</span>
                             </div>
                             <div class="sm:col-span-2">
-                                <span class="text-slate-500 font-medium">Address (വിലാസം):</span>
+                                <span class="text-slate-500 font-medium">Address:</span>
                                 <span class="font-medium text-slate-800 ml-1">${escapeHtml(address)}</span>
                             </div>
                         </div>
@@ -6183,7 +6217,7 @@ const handleConfirmGroupCreation = async () => {
     if (!requirePermission('groups.manage')) return;
     if (!pendingGroupCreationData) return;
 
-    const { studentIds, groupFee } = pendingGroupCreationData;
+    const { studentIds, groupFee, isEdit, groupId } = pendingGroupCreationData;
     const modal = document.getElementById('group-unify-family-modal');
     const confirmBtn = document.getElementById('unify-family-confirm-btn');
     const skipCheckbox = document.getElementById('unify-family-skip-checkbox');
@@ -6203,7 +6237,7 @@ const handleConfirmGroupCreation = async () => {
     try {
         if (confirmBtn) {
             confirmBtn.disabled = true;
-            confirmBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> <span>Creating...</span>';
+            confirmBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> <span>Saving...</span>';
         }
 
         const batch = writeBatch(db);
@@ -6249,48 +6283,88 @@ const handleConfirmGroupCreation = async () => {
             });
         }
 
-        // 2. Create the student group document
-        const groupRef = doc(collection(db, `${BASE_PATH}/studentGroups`));
-        const groupPayload = {
-            academicYear: activeAcademicYear || currentAcademicYear,
-            memberIds: studentIds,
-            fee: groupFee,
-            createdAt: nowTs,
-            updatedAt: nowTs
-        };
-        batch.set(groupRef, groupPayload);
+        if (isEdit && groupId) {
+            // 2a. Update existing group document
+            const groupRef = doc(db, `${BASE_PATH}/studentGroups`, groupId);
+            const groupPayload = {
+                memberIds: studentIds,
+                fee: groupFee,
+                updatedAt: nowTs
+            };
+            batch.update(groupRef, groupPayload);
 
-        await batch.commit();
+            await batch.commit();
 
-        // Update local memory
-        studentGroups.push({ id: groupRef.id, ...groupPayload });
+            // Deduplicated update of local memory
+            const exIdx = studentGroups.findIndex(g => g.id === groupId);
+            if (exIdx >= 0) {
+                studentGroups[exIdx] = { ...studentGroups[exIdx], ...groupPayload };
+            } else {
+                studentGroups.push({ id: groupId, ...groupPayload });
+            }
 
-        await logAuditEvent({
-            category: 'group',
-            action: 'group.create',
-            entityType: 'studentGroup',
-            entityId: groupRef.id,
-            message: `Student group created with ${studentIds.length} members. Fee: ₹${groupFee}.${chosenStudent ? ` Family details consolidated from ${chosenStudent.name}.` : ''}`
-        });
+            await logAuditEvent({
+                category: 'group',
+                action: 'group.update',
+                entityType: 'studentGroup',
+                entityId: groupId,
+                message: `Student group updated with ${studentIds.length} members. Fee: ₹${groupFee}.${chosenStudent ? ` Family details consolidated from ${chosenStudent.name}.` : ''}`
+            });
 
-        closeUnifyFamilyModal();
-        renderStudentGroups();
-        if (typeof renderStudentList === 'function') renderStudentList();
+            closeUnifyFamilyModal();
+            renderStudentGroups();
+            if (typeof renderStudentList === 'function') renderStudentList();
 
-        // Clear creation form
-        document.getElementById('num-of-students-group').value = '';
-        document.getElementById('group-monthly-fee').value = '';
-        document.getElementById('group-creation-container').innerHTML = '';
-        document.getElementById('create-group-btn-container')?.classList.add('hidden');
+            alert(`Student Group updated successfully!${chosenStudent ? ' Family details (Father, Mother, Phone numbers, and Address) have been unified across all members.' : ''}`);
+        } else {
+            // 2b. Create new student group document
+            const groupRef = doc(collection(db, `${BASE_PATH}/studentGroups`));
+            const groupPayload = {
+                academicYear: activeAcademicYear || currentAcademicYear,
+                memberIds: studentIds,
+                fee: groupFee,
+                createdAt: nowTs,
+                updatedAt: nowTs
+            };
+            batch.set(groupRef, groupPayload);
 
-        alert(`Student Group created successfully!${chosenStudent ? ' Family details (Father, Mother, Phone numbers, and Address) have been unified across all members.' : ''}`);
+            await batch.commit();
+
+            // Deduplicated update of local memory
+            const exIdx = studentGroups.findIndex(g => g.id === groupRef.id);
+            if (exIdx >= 0) {
+                studentGroups[exIdx] = { ...studentGroups[exIdx], ...groupPayload };
+            } else {
+                studentGroups.push({ id: groupRef.id, ...groupPayload });
+            }
+
+            await logAuditEvent({
+                category: 'group',
+                action: 'group.create',
+                entityType: 'studentGroup',
+                entityId: groupRef.id,
+                message: `Student group created with ${studentIds.length} members. Fee: ₹${groupFee}.${chosenStudent ? ` Family details consolidated from ${chosenStudent.name}.` : ''}`
+            });
+
+            closeUnifyFamilyModal();
+            renderStudentGroups();
+            if (typeof renderStudentList === 'function') renderStudentList();
+
+            // Clear creation form
+            document.getElementById('num-of-students-group').value = '';
+            document.getElementById('group-monthly-fee').value = '';
+            document.getElementById('group-creation-container').innerHTML = '';
+            document.getElementById('create-group-btn-container')?.classList.add('hidden');
+
+            alert(`Student Group created successfully!${chosenStudent ? ' Family details (Father, Mother, Phone numbers, and Address) have been unified across all members.' : ''}`);
+        }
     } catch (err) {
-        console.error("Failed to create student group:", err);
+        console.error("Failed to save student group:", err);
         alert("Failed to save student group. Please check your network connection and try again.");
     } finally {
         if (confirmBtn) {
             confirmBtn.disabled = false;
-            confirmBtn.innerHTML = '<i class="fas fa-check-circle"></i> <span>Confirm &amp; Create Group</span>';
+            confirmBtn.innerHTML = '<i class="fas fa-check-circle"></i> <span>Confirm &amp; Save Group</span>';
         }
     }
 };
@@ -10148,8 +10222,8 @@ onAuthStateChanged(auth, async (user) => {
         });
 
         onSnapshot(collection(db, `${BASE_PATH}/studentGroups`), (snap) => {
-            studentGroups = snap.docs
-                .map(d => ({id: d.id, ...d.data()}))
+            const rawGroups = snap.docs.map(d => ({id: d.id, ...d.data()}));
+            studentGroups = Array.from(new Map(rawGroups.map(g => [g.id, g])).values())
                 .filter((group) => (group.academicYear || currentAcademicYear) === (activeAcademicYear || currentAcademicYear));
             renderDashboard();
             if(!document.getElementById('manage-groups-page').classList.contains('hidden')) renderStudentGroups();
