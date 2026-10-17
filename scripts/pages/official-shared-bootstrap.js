@@ -282,7 +282,7 @@ import { signInAnonymously, onAuthStateChanged, signInWithEmailAndPassword } fro
     const getStudentGroup = (studentId = '') => studentGroups.find((group) => Array.isArray(group.memberIds) && group.memberIds.includes(studentId));
     const getGroupMemberRows = (group = {}) => (group.memberIds || []).map((memberId) => allStudents.find((student) => student.id === memberId)).filter(Boolean);
 
-    const getMobileToggle = () => document.getElementById('mobile-menu-btn');
+    const getMobileToggle = () => document.getElementById('official-my-profile-btn') || document.getElementById('mobile-menu-btn');
     const getNavMenu = () => document.querySelector('.nav-menu');
     const setMobileMenuState = (isOpen) => {
       const menu = getNavMenu();
@@ -401,6 +401,7 @@ import { signInAnonymously, onAuthStateChanged, signInWithEmailAndPassword } fro
     document.getElementById('official-id-card-modal')?.addEventListener('click', (event) => { if (event.target === event.currentTarget) closeIdCardModal(); });
     document.addEventListener('keydown', (event) => {
       if (event.key === 'Escape') {
+        setMobileMenuState(false);
         closeOfficialDetailModal();
         closeIdCardModal();
       }
@@ -408,6 +409,11 @@ import { signInAnonymously, onAuthStateChanged, signInWithEmailAndPassword } fro
 
     document.querySelectorAll('.tab-link').forEach((btn) => btn.addEventListener('click', (event) => { event.preventDefault(); setTab(btn.dataset.tab); }));
     document.getElementById('mobile-menu-btn')?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const menu = getNavMenu();
+      setMobileMenuState(!menu?.classList.contains('active'));
+    });
+    document.getElementById('official-my-profile-btn')?.addEventListener('click', (e) => {
       e.stopPropagation();
       const menu = getNavMenu();
       setMobileMenuState(!menu?.classList.contains('active'));
@@ -4416,13 +4422,29 @@ import { signInAnonymously, onAuthStateChanged, signInWithEmailAndPassword } fro
       const staffRoleDisplay = document.getElementById('staff-role-display');
       if (staffRoleDisplay) staffRoleDisplay.textContent = userRole;
 
+      // Dropdown menu profile header card (Name on top, Role below)
+      const menuUserName = document.getElementById('official-dropdown-user-name');
+      if (menuUserName) menuUserName.textContent = resolvedName;
+      const menuUserRole = document.getElementById('official-dropdown-user-role');
+      if (menuUserRole) menuUserRole.textContent = userRole;
+
       const headerAvatarBox = document.getElementById('official-header-avatar-box');
+      const dropdownAvatarBox = document.getElementById('official-dropdown-avatar');
+      const initialChar = String(resolvedName || 'S').trim().charAt(0).toUpperCase() || 'S';
+      
       if (headerAvatarBox) {
-        const initialChar = String(resolvedName || 'S').trim().charAt(0).toUpperCase() || 'S';
         if (hasValidPhoto) {
           headerAvatarBox.innerHTML = `<img src="${escapeHtml(rawPhoto)}" alt="${escapeHtml(resolvedName)}" class="w-full h-full object-cover rounded-full" onerror="this.onerror=null;this.parentElement.innerHTML='<span class=\\'text-xs font-extrabold text-indigo-700\\'>${escapeHtml(initialChar)}</span>';">`;
         } else {
           headerAvatarBox.innerHTML = `<span class="text-xs font-extrabold text-indigo-700">${escapeHtml(initialChar)}</span>`;
+        }
+      }
+
+      if (dropdownAvatarBox) {
+        if (hasValidPhoto) {
+          dropdownAvatarBox.innerHTML = `<img src="${escapeHtml(rawPhoto)}" alt="${escapeHtml(resolvedName)}" class="w-full h-full object-cover rounded-full" onerror="this.onerror=null;this.parentElement.innerHTML='<span class=\\'text-xs font-black text-indigo-700\\'>${escapeHtml(initialChar)}</span>';">`;
+        } else {
+          dropdownAvatarBox.innerHTML = `<span class="text-xs font-black text-indigo-700">${escapeHtml(initialChar)}</span>`;
         }
       }
 
@@ -4448,13 +4470,6 @@ import { signInAnonymously, onAuthStateChanged, signInWithEmailAndPassword } fro
         setTab(validTabs.includes(rawHash) ? rawHash : 'summary');
       } else {
         setTab('dashboard');
-        const profileBtn = document.getElementById('official-my-profile-btn');
-        if (profileBtn && !profileBtn.dataset.boundProfileModal) {
-          profileBtn.dataset.boundProfileModal = 'true';
-          profileBtn.addEventListener('click', () => {
-            openMyProfileModal();
-          });
-        }
         const navProfileBtn = document.getElementById('official-nav-profile-btn');
         if (navProfileBtn && !navProfileBtn.dataset.boundProfileModal) {
           navProfileBtn.dataset.boundProfileModal = 'true';
